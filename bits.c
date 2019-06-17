@@ -155,7 +155,7 @@ int bitXor(int x, int y) {
  */
 int tmin(void) {
     
-  return 2;
+  return 1 << 31;
 
 }
 //2
@@ -167,8 +167,9 @@ int tmin(void) {
  *   Rating: 1
  */
 int isTmax(int x) {
-  
-  return 2;
+    int tmp1 = (x + 1)^(x);
+    tmp1 = tmp1 + 1; 
+    return (!tmp1) & (!!(~x));
 }
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
@@ -179,7 +180,14 @@ int isTmax(int x) {
  *   Rating: 2
  */
 int allOddBits(int x) {
-  return 2;
+  // Create a mask with odd numbered bits as 1
+  int mask = 0xA;
+  int face;
+  mask = (mask << 4) + mask;
+  mask = (mask << 8) + mask;
+  mask = (mask << 16) + mask;
+  face = ~(mask & x);
+  return !(~(face ^ mask));
 }
 /* 
  * negate - return -x 
@@ -189,7 +197,7 @@ int allOddBits(int x) {
  *   Rating: 2
  */
 int negate(int x) {
-  return 2;
+  return (~x) + 1;
 }
 //3
 /* 
