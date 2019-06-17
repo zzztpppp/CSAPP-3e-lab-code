@@ -217,7 +217,7 @@ int isAsciiDigit(int x) {
   // Second: Comparing the 0th to 3rd bit.
   // Hope this will do.(This is not gonna do...)
   int mask1 = 0x0000000f;
-  int mask2 = 0xfffffff0;
+  int mask2 = ~mask1;
   int face_up = mask2 & x;
   int face_low = mask1 & x;
   // Ah how dum I am to come up with such
