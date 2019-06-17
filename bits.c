@@ -155,7 +155,7 @@ int bitXor(int x, int y) {
  */
 int tmin(void) {
     
-  return ~(0xe << 38);
+  return 2;
 
 }
 //2
@@ -202,7 +202,27 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-  return 2;
+  // I think this is all about binary comparison.
+  // I'd like to decomposite solution into 2
+  // parts. 
+  // Firt: Comparing the 4th to 7th bit.
+  // Second: Comparing the 0th to 3rd bit.
+  // Hope this will do.
+  int mask1 = 0x0000000f;
+  int mask2 = 0xfffffff0;
+  int face_up = mask2 & x;
+  int face_low = mask1 & x;
+  // Ah how dum I am to come up with such
+  // an approach.
+  int tmp1 = face_low ^ 0x8;
+  // printf("%d\n", tmp1);
+  int tmp2 = face_low ^ 0x9;
+  // printf("%d\n", tmp2);
+  int tmp3 = face_low & 0x8;
+  // printf("%d\n", tmp3); 
+  int tmp4 = face_up ^ 0x30;
+  // printf("%d\n", tmp4);
+  return (!tmp4) & ((!tmp1) | (!tmp2) |(!tmp3));
 }
 /* 
  * conditional - same as x ? y : z 
