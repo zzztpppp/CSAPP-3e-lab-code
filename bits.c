@@ -215,7 +215,7 @@ int isAsciiDigit(int x) {
   // parts. 
   // Firt: Comparing the 4th to 7th bit.
   // Second: Comparing the 0th to 3rd bit.
-  // Hope this will do.
+  // Hope this will do.(This is not gonna do...)
   int mask1 = 0x0000000f;
   int mask2 = 0xfffffff0;
   int face_up = mask2 & x;
@@ -223,13 +223,9 @@ int isAsciiDigit(int x) {
   // Ah how dum I am to come up with such
   // an approach.
   int tmp1 = face_low ^ 0x8;
-  // printf("%d\n", tmp1);
   int tmp2 = face_low ^ 0x9;
-  // printf("%d\n", tmp2);
   int tmp3 = face_low & 0x8;
-  // printf("%d\n", tmp3); 
   int tmp4 = face_up ^ 0x30;
-  // printf("%d\n", tmp4);
   return (!tmp4) & ((!tmp1) | (!tmp2) |(!tmp3));
 }
 /* 
@@ -240,7 +236,16 @@ int isAsciiDigit(int x) {
  *   Rating: 3
  */
 int conditional(int x, int y, int z) {
-  return 2;
+  // If x is not zero, we need somehow convert
+  // it to 0xffffffff otherwise 0x0 and return a number
+  // masked by the two.
+  int mask = (!x);
+  mask = (mask << 1) + mask;
+  mask = (mask << 2) + mask;
+  mask = (mask << 4) + mask;
+  mask = (mask << 8) + mask;
+  mask = (mask << 16) + mask;
+  return (mask & z) | (~mask & y);
 }
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
