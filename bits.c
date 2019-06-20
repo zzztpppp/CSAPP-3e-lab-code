@@ -255,7 +255,28 @@ int conditional(int x, int y, int z) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-  return 2;
+  // Thoughts: We first determine wether x equals y
+  // and then detertimine if x is less than y by substructing 
+  // x from y and comparing the reuslt to 0. Need to be careful 
+  // with the tmin, since it will overflow if it is negated.
+  int tmin = 1 << 31;
+  int sign_x = !!(x & tmin);
+  int sign_y = !!(y & tmin);
+  int neg_x = ~x + 1;
+  int diff = y + neg_x;
+  int sign_diff = diff & tmin;
+  
+  // If y is neg. while x is pos. we can just simply 
+  // return False and vice versa.I'd like to call this
+  // "dummy case"
+  int dummy_1 = sign_x & (!sign_y);
+  int dummy_2 = (!sign_x) & sign_y;
+  int part_res = dummy_1 | (!dummy_2);
+  int indicator = dummy_1 | dummy_2;
+  // It's bassically returns and conditional expression:
+  // if x and y is of same sign we return not sign_diff
+  // other wise we return part res.
+  return (part_res & indicator) | ((!sign_diff) & (part_res));
 }
 //4
 /* 
@@ -267,7 +288,18 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 4 
  */
 int logicalNeg(int x) {
-  return 2;
+  // Thoughts: Maybe we need to convert any non-zero value
+  // to 1 first. And then consider how to negate them logically.
+  // If x is 0, ~x + 1 is 0 itself. What's been said before is bullshit,
+  // I'll do it in this way: firt determine if it is negative, if yes, 
+  // we return 0 otherwise we negate x and substruct it from 0, if the
+  // restult is negative, we return 0, otherwise we return 1.
+  
+  int tmin = 1 << 31;
+  int sign_x = tmin & x;
+  int neg_x = ~x + 1;
+  int sign_neg = tmin & neg_x;
+  return ((~(sign_x | sign_neg)) >> 31) & 1;
 }
 /* howManyBits - return the minimum number of bits required to represent x in
  *             two's complement
@@ -282,7 +314,84 @@ int logicalNeg(int x) {
  *  Rating: 4
  */
 int howManyBits(int x) {
-  return 0;
+  // 90 ops looks formidable...
+  // Gut feeling tells me this problesm invovlves
+  // a lot of masking...
+  // Thouhts: we left shift the x bit by bit and store 
+  // the number of shifts into a counter. We keep track of 
+  // the sign bit, once we ecounter a 1, we somehow stop 
+  // and return. Since loops are not allowed, we need to 
+  // hard code it out.
+  
+  
+  int num_bits = 0;
+  int tmin = 1 << 31;
+  mask = ~tmin;
+  num_bits = (!!x) + num_bits;
+  int bit_30 = (x >> 1) & mask;
+  num_bits = num_bits + (!!bit_30);
+  int bit_29 = (x >> 2);
+  num_bits = num_bits + (!!bit_29);
+  int bit_28 = (x >> 3);
+  num_bits = num_bits + (!!bit_28);
+  int bit_27 = (x >> 4);
+  num_bits = num_bits + (!!bit_27);
+  int bit_26 = (x >> 5);
+  num_bits = num_bits + (!!bit_26);
+  int bit_25 = (x >> 6);
+  num_bits = num_bits + (!!bit_25);
+  int bit_24 = (x >> 7);
+  num_bits = num_bits + (!!bit_24);
+  int bit_23 = (x >> 8);
+  num_bits = num_bits + (!!bit_23);
+  int bit_22 = (x >> 9);
+  num_bits = num_bits + (!!bit_22);
+  int bit_21 = (x >> 10);
+  num_bits = num_bits + (!!bit_21);
+  int bit_20 = (x >> 11);
+  num_bits = num_bits + (!!bit_20);
+  int bit_19 = (x >> 12);
+  num_bits = num_bits + (!!bit_19);
+  int bit_18 = (x >> 13);
+  num_bits = num_bits + (!!bit_18);
+  int bit_17 = (x >> 14);
+  num_bits = num_bits + (!!bit_17);
+  int bit_16 = (x >> 15);
+  num_bits = num_bits + (!!bit_16);
+  int bit_15 = (x >> 16);
+  num_bits = num_bits + (!!bit_15);
+  int bit_14 = (x >> 17);
+  num_bits = num_bits + (!!bit_14);
+  int bit_13 = (x >> 18);
+  num_bits = num_bits + (!!bit_13);
+  int bit_12 = (x >> 19);
+  num_bits = num_bits + (!!bit_12);
+  int bit_11 = (x >> 20);
+  num_bits = num_bits + (!!bit_11);
+  int bit_10 = (x >> 21);
+  num_bits = num_bits + (!!bit_10);
+  int bit_9 = (x >> 22);
+  num_bits = num_bits + (!!bit_9);
+  int bit_8 = (x >> 23);
+  num_bits = num_bits + (!!bit_8);
+  int bit_7 = (x >> 24);
+  num_bits = num_bits + (!!bit_7);
+  int bit_6 = (x >> 25);
+  num_bits = num_bits + (!!bit_6);
+  int bit_5 = (x >> 26);
+  num_bits = num_bits + (!!bit_5);
+  int bit_4 = (x >> 27);
+  num_bits = num_bits + (!!bit_4);
+  int bit_3 = (x >> 28);
+  num_bits = num_bits + (!!bit_3);
+  int bit_2 = (x >> 29);
+  num_bits = num_bits + (!!bit_2);
+  int bit_1 = (x >> 30);
+  num_bits = num_bits + (!!bit_1);
+  int bit_0 = (x >> 31);
+  num_bits = num_bits + (!!bit_0);
+ 
+  return num_bits;
 }
 //float
 /* 
