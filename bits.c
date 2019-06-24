@@ -327,81 +327,35 @@ int howManyBits(int x) {
   // with 98 ops. After couple of days thinking, I have 
   // no clue at all about how to reduce the ops under 90...i
   // Maybe I should turn to the text book. Well, a better idea
-  // will be we shift 1 as masks to mask the given number and
-  // keep replacing the result if the face is not zero.
-
-  int mask = 1;
-  int num_bits = 1;
-  int num_bits_prev;
-  int bit0, bit1, bit2, bit3, bit4, bit5, bit6, bit7, bit8, bit9;
-  int bit10, bit11, bit12, bit13, bit14, bit15, bit16, bit17, bit18;
-  int bit19, bit20, bit21, bit22, bit23, bit24, bit25, bit26, bit27;
-  int bit28, bit29, bit30, bit31;
-  bit0 = mask & x;
-  mask = mask << 1;
-  bit1 = mask & x;
-  mask = mask << 1;
-  bit2 = mask & x;
-  mask = mask << 1;
-  bit3 = mask & x;
-  mask = mask << 1;
-  bit4 = mask & x;
-  mask = mask << 1;
-  bit5 = mask & x;
-  mask = mask << 1;
-  bit6 = mask & x;
-  mask = mask << 1;
-  bit7 = mask & x;
-  mask = mask << 1;
-  bit8 = mask & x;
-  mask = mask << 1;
-  bit9 = mask & x;
-  mask = mask << 1;
-  bit10 = mask & x;
-  mask = mask << 1;
-  bit11 = mask & x;
-  mask = mask << 1;
-  bit12 = mask & x;
-  mask = mask << 1;
-  bit13 = mask & x;
-  mask = mask << 1;
-  bit14 = mask & x;
-  mask = mask << 1;
-  bit15 = mask & x;
-  mask = mask << 1;
-  bit16 = mask & x;
-  mask = mask << 1;
-  bit17 = mask & x;
-  mask = mask << 1;
-  bit18 = mask & x;
-  mask = mask << 1;
-  bit19 = mask & x;
-  mask = mask << 1;
-  bit20 = mask & x;
-  mask = mask << 1;
-  bit21 = mask & x;
-  mask = mask << 1;
-  bit22 = mask & x;
-  mask = mask << 1;
-  bit23 = mask & x;
-  mask = mask << 1;
-  bit24 = mask & x;
-  mask = mask << 1;
-  bit25 = mask & x;
-  mask = mask << 1;
-  bit26 = mask & x;
-  mask = mask << 1;
-  bit27 = mask & x;
-  mask = mask << 1;
-  bit28 = mask & x;
-  mask = mask << 1;
-  bit29 = mask & x;
-  mask = mask << 1;
-  bit30 = mask & x;
-  mask = mask << 1;
-  bit31 = mask & x;
+  // will be shifting 1 as masks to mask the given number and
+  // keep replacing the result if the face is not zero. What a 
+  // dummy I was, why did I just dwell on the algorithm that is 
+  // of O(n), this problem is essentially about calculating the 
+  // log2(x), and t2here is algorithms of O(lg(N)). Yes! Still I 
+  // have to take negative number as a special case. Since here
+  // we are required to "compress" the representation of negative
+  // 2s complement.
   
-  return 2; 
+  int r;
+  int shift;
+  int sign_x;
+  int tmin = 1 << 31;
+  int tmp1, tmp2, tmp3;
+  int bool_x = ~(!!x) + 1;
+  sign_x = (x & tmin) >> 31;
+
+  r = (!!(((0xFF << 8) + (~x + 1)) & tmin)) << 4; x = x >> r;
+  shift = (!!(((0xFF) + (~x + 1)) & tmin)) << 3; x = x >> shift;
+  r = shift | r;
+  shift = (!!(((0xF) + (~x + 1)) & tmin)) << 2; x = x >> shift;
+  r = shift | r;
+  shift = (!!(((0x3) + (~x + 1)) & tmin)) << 1; x = x >> shift;
+  r = shift | r;
+  printf("bool x is %d\n", bool_x);
+  tmp1 = (((r + 2) & (~sign_x)) & bool_x);
+  tmp2 =  ((sign_x & 32) & bool_x);
+  tmp3 = (1 & (~bool_x)); 
+  return tmp1 | tmp2 | tmp3; 
  }
 //float
 /* 
