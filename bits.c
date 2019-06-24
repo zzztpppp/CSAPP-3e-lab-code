@@ -154,7 +154,8 @@ int bitXor(int x, int y) {
  *   Rating: 1
  */
 int tmin(void) {
-    
+  //Ah ha! Easy peasy lemon sequeezy!
+  //
   return 1 << 31;
 
 }
@@ -273,7 +274,7 @@ int isLessOrEqual(int x, int y) {
   int dummy_2 = (!sign_x) & sign_y;
   int part_res = dummy_1 | (!dummy_2);
   int indicator = dummy_1 | dummy_2;
-  // It's bassically returns and conditional expression:
+  // It's bassically returns a conditional expression:
   // if x and y is of same sign we return not sign_diff
   // other wise we return part res.
   return (part_res & indicator) | ((!sign_diff) & (part_res));
@@ -293,7 +294,8 @@ int logicalNeg(int x) {
   // If x is 0, ~x + 1 is 0 itself. What's been said before is bullshit,
   // I'll do it in this way: firt determine if it is negative, if yes, 
   // we return 0 otherwise we negate x and substruct it from 0, if the
-  // restult is negative, we return 0, otherwise we return 1.
+  // restult is negative, we return 0, otherwise we return 1. Nope! I've
+  // figured out a simpler way, see the code.
   
   int tmin = 1 << 31;
   int sign_x = tmin & x;
@@ -321,83 +323,92 @@ int howManyBits(int x) {
   // the number of shifts into a counter. We keep track of 
   // the sign bit, once we ecounter a 1, we somehow stop 
   // and return. Since loops are not allowed, we need to 
-  // hard code it out.
+  // hard code it out. Damn! The best I can do so far is 
+  // with 98 ops. After couple of days thinking, I have 
+  // no clue at all about how to reduce the ops under 90...i
+  // Maybe I should turn to the text book. Well, a better idea
+  // will be we shift 1 as masks to mask the given number and
+  // keep replacing the result if the face is not zero.
+
+  int mask = 1;
+  int num_bits = 1;
+  int num_bits_prev;
+  int bit0, bit1, bit2, bit3, bit4, bit5, bit6, bit7, bit8, bit9;
+  int bit10, bit11, bit12, bit13, bit14, bit15, bit16, bit17, bit18;
+  int bit19, bit20, bit21, bit22, bit23, bit24, bit25, bit26, bit27;
+  int bit28, bit29, bit30, bit31;
+  bit0 = mask & x;
+  mask = mask << 1;
+  bit1 = mask & x;
+  mask = mask << 1;
+  bit2 = mask & x;
+  mask = mask << 1;
+  bit3 = mask & x;
+  mask = mask << 1;
+  bit4 = mask & x;
+  mask = mask << 1;
+  bit5 = mask & x;
+  mask = mask << 1;
+  bit6 = mask & x;
+  mask = mask << 1;
+  bit7 = mask & x;
+  mask = mask << 1;
+  bit8 = mask & x;
+  mask = mask << 1;
+  bit9 = mask & x;
+  mask = mask << 1;
+  bit10 = mask & x;
+  mask = mask << 1;
+  bit11 = mask & x;
+  mask = mask << 1;
+  bit12 = mask & x;
+  mask = mask << 1;
+  bit13 = mask & x;
+  mask = mask << 1;
+  bit14 = mask & x;
+  mask = mask << 1;
+  bit15 = mask & x;
+  mask = mask << 1;
+  bit16 = mask & x;
+  mask = mask << 1;
+  bit17 = mask & x;
+  mask = mask << 1;
+  bit18 = mask & x;
+  mask = mask << 1;
+  bit19 = mask & x;
+  mask = mask << 1;
+  bit20 = mask & x;
+  mask = mask << 1;
+  bit21 = mask & x;
+  mask = mask << 1;
+  bit22 = mask & x;
+  mask = mask << 1;
+  bit23 = mask & x;
+  mask = mask << 1;
+  bit24 = mask & x;
+  mask = mask << 1;
+  bit25 = mask & x;
+  mask = mask << 1;
+  bit26 = mask & x;
+  mask = mask << 1;
+  bit27 = mask & x;
+  mask = mask << 1;
+  bit28 = mask & x;
+  mask = mask << 1;
+  bit29 = mask & x;
+  mask = mask << 1;
+  bit30 = mask & x;
+  mask = mask << 1;
+  bit31 = mask & x;
   
-  
-  int num_bits = 0;
-  int tmin = 1 << 31;
-  mask = ~tmin;
-  num_bits = (!!x) + num_bits;
-  int bit_30 = (x >> 1) & mask;
-  num_bits = num_bits + (!!bit_30);
-  int bit_29 = (x >> 2);
-  num_bits = num_bits + (!!bit_29);
-  int bit_28 = (x >> 3);
-  num_bits = num_bits + (!!bit_28);
-  int bit_27 = (x >> 4);
-  num_bits = num_bits + (!!bit_27);
-  int bit_26 = (x >> 5);
-  num_bits = num_bits + (!!bit_26);
-  int bit_25 = (x >> 6);
-  num_bits = num_bits + (!!bit_25);
-  int bit_24 = (x >> 7);
-  num_bits = num_bits + (!!bit_24);
-  int bit_23 = (x >> 8);
-  num_bits = num_bits + (!!bit_23);
-  int bit_22 = (x >> 9);
-  num_bits = num_bits + (!!bit_22);
-  int bit_21 = (x >> 10);
-  num_bits = num_bits + (!!bit_21);
-  int bit_20 = (x >> 11);
-  num_bits = num_bits + (!!bit_20);
-  int bit_19 = (x >> 12);
-  num_bits = num_bits + (!!bit_19);
-  int bit_18 = (x >> 13);
-  num_bits = num_bits + (!!bit_18);
-  int bit_17 = (x >> 14);
-  num_bits = num_bits + (!!bit_17);
-  int bit_16 = (x >> 15);
-  num_bits = num_bits + (!!bit_16);
-  int bit_15 = (x >> 16);
-  num_bits = num_bits + (!!bit_15);
-  int bit_14 = (x >> 17);
-  num_bits = num_bits + (!!bit_14);
-  int bit_13 = (x >> 18);
-  num_bits = num_bits + (!!bit_13);
-  int bit_12 = (x >> 19);
-  num_bits = num_bits + (!!bit_12);
-  int bit_11 = (x >> 20);
-  num_bits = num_bits + (!!bit_11);
-  int bit_10 = (x >> 21);
-  num_bits = num_bits + (!!bit_10);
-  int bit_9 = (x >> 22);
-  num_bits = num_bits + (!!bit_9);
-  int bit_8 = (x >> 23);
-  num_bits = num_bits + (!!bit_8);
-  int bit_7 = (x >> 24);
-  num_bits = num_bits + (!!bit_7);
-  int bit_6 = (x >> 25);
-  num_bits = num_bits + (!!bit_6);
-  int bit_5 = (x >> 26);
-  num_bits = num_bits + (!!bit_5);
-  int bit_4 = (x >> 27);
-  num_bits = num_bits + (!!bit_4);
-  int bit_3 = (x >> 28);
-  num_bits = num_bits + (!!bit_3);
-  int bit_2 = (x >> 29);
-  num_bits = num_bits + (!!bit_2);
-  int bit_1 = (x >> 30);
-  num_bits = num_bits + (!!bit_1);
-  int bit_0 = (x >> 31);
-  num_bits = num_bits + (!!bit_0);
- 
-  return num_bits;
-}
+  return 2; 
+ }
 //float
 /* 
  * floatScale2 - Return bit-level equivalent of expression 2*f for
  *   floating point argument f.
- *   Both the argument and result are passed as unsigned int's, but
+ *   Both the argument and
+ *   result are passed as unsigned int's, but
  *   they are to be interpreted as the bit-level representation of
  *   single-precision floating point values.
  *   When argument is NaN, return argument
