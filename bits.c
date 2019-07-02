@@ -340,22 +340,44 @@ int howManyBits(int x) {
   int shift;
   int sign_x;
   int tmin = 1 << 31;
-  int tmp1, tmp2, tmp3;
-  int bool_x = ~(!!x) + 1;
+  int negative_1 = tmin >> 31;
+  int is_tmin, is_n2, is_zero;
+  int c_0xFFFF = (0xFF << 8) + 0xFF;
+  int abs_x;
   sign_x = (x & tmin) >> 31;
+  
+  // If x is tmin then return 32
+  is_tmin = !(tmin ^ x);
+  is_tmin = is_tmin << 31 >> 31; 
+  
+  // If x is 0 return 1
+  is_zero = (!(x ^ 0)) << 31 >> 31;  
+ 
 
-  r = (!!(((0xFF << 8) + (~x + 1)) & tmin)) << 4; x = x >> r;
-  shift = (!!(((0xFF) + (~x + 1)) & tmin)) << 3; x = x >> shift;
+  // Negate x if x if negative.
+  x = ((~x + 1) & sign_x) | ((~sign_x)  & x);
+
+  abs_x = x;
+
+  // Calculate the logrithm of abs(x)
+  r = (!!((c_0xFFFF + (~x + 1)) & tmin)) << 4; x = x >>r;
+  shift = (!!((0xFF + (~x + 1)) & tmin)) << 3; x = x >> shift;
   r = shift | r;
-  shift = (!!(((0xF) + (~x + 1)) & tmin)) << 2; x = x >> shift;
+  shift = (!!((0xF + (~x + 1)) & tmin)) << 2; x = x >> shift;
   r = shift | r;
-  shift = (!!(((0x3) + (~x + 1)) & tmin)) << 1; x = x >> shift;
-  r = shift | r;
-  printf("bool x is %d\n", bool_x);
-  tmp1 = (((r + 2) & (~sign_x)) & bool_x);
-  tmp2 =  ((sign_x & 32) & bool_x);
-  tmp3 = (1 & (~bool_x)); 
-  return tmp1 | tmp2 | tmp3; 
+  shift = (!!((0x3 + (~x + 1)) & tmin)) << 1; x = x >> shift;
+  r = r | shift;
+  r = r | (x >> 1); 
+
+  // If x is negative and also a
+  // power of 2. The bits it needs
+   // is one bit less than its positive 
+  // counter part. We set a mark
+  // for x being this case here.
+  is_n2 = (!((1 << r) ^ abs_x)) << 31 >> 31;
+  is_n2 = sign_x & is_n2;
+
+  return (((~is_zero) & (((r + 2) & (~is_tmin)) | (is_tmin & 32))) | (is_zero & 1)) + (is_n2 & (~1 + 1));
  }
 //float
 /* 
@@ -382,7 +404,7 @@ unsigned floatScale2(unsigned uf) {
  *   Anything out of range (including NaN and infinity) should return
  *   0x80000000u.
  *   Legal ops: Any integer/unsigned operations incl. ||, &&. also if, while
- *   Max ops: 30
+
  *   Rating: 4
  */
 int floatFloat2Int(unsigned uf) {
