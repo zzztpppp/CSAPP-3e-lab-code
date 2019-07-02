@@ -340,7 +340,6 @@ int howManyBits(int x) {
   int shift;
   int sign_x;
   int tmin = 1 << 31;
-  int negative_1 = tmin >> 31;
   int is_tmin, is_n2, is_zero;
   int c_0xFFFF = (0xFF << 8) + 0xFF;
   int abs_x;
