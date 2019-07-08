@@ -392,7 +392,44 @@ int howManyBits(int x) {
  *   Rating: 4
  */
 unsigned floatScale2(unsigned uf) {
-  return 2;
+  // If it is normalized value, we simply increment the 
+  // exponent bits. If it is subnormalized value, we double
+  // the significant bits. The tricky points of this 
+  // problem is about those coner cases where we need to 
+  // swich the normalized values into subnormalized ones.
+
+  int frac_mask = ((0xFF << 16) - (1 << 23)); 
+  int exponent = (0xFF << 23) & uf;
+  int sign_bit = (1 << 31) & uf;
+  int frac = frac_mask & uf;
+  int result_frac, result_exponent, tmp1, tmp2;
+  
+  result_frac = frac;
+  result_exponent = exponent;
+  // +-inf or NaN case
+  if (!!(exponent ^ 0xFF)) {
+      return uf;
+  } 
+  
+  if (!!(exponent ^ 0)) { 
+     // 0 value case
+     if (!sign_bit)
+         return uf;
+     tmp1 = (frac + frac) & frac_mask;
+     if (tmp1 < frac) {
+         result_frac = tmp1;
+	 result_exponent = 127;
+     }
+     if (!(tmp1 < frac)) {
+	 result_frac = tmp1;
+     }
+  }
+
+  if (!(exponent ^ 0)) {
+     result_exponent  = result_exponent + 1;
+  }
+  
+  return sign_bit | result_exponent | result_frac;
 }
 /* 
  * floatFloat2Int - Return bit-level equivalent of expression (int) f
