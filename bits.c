@@ -402,7 +402,8 @@ unsigned floatScale2(unsigned uf) {
   int exponent = (0xFF << 23) & uf;
   int sign_bit = (1 << 31) & uf;
   int frac = frac_mask & uf;
-  int result_frac, result_exponent, tmp1, tmp2;
+  int result_frac, result_exponent;
+  int is_exp_zero = exponent ^ 0;
   
   result_frac = frac;
   result_exponent = exponent;
@@ -412,24 +413,24 @@ unsigned floatScale2(unsigned uf) {
   }
 
   // Denormalized case 
-  if (!(exponent ^ 0)) {
+  if (!is_exp_zero) {
+
      // 0 value case
      if (!(frac ^ 0))
          return uf;
-     tmp1 = (frac + frac) & frac_mask;
+
+     result_frac = (frac + frac) & frac_mask;
 
      // If there is a overflow in
      // 2 * frac. Convert the number
      // to normalized case.
-     if (tmp1 < frac) {
+     if (result_frac < frac) {
 	 result_exponent = 1 << 23;
      }
-     result_frac = tmp1;
-     
   }
 
   // Normalized case
-  if ((exponent ^ 0)) {
+  if (is_exp_zero) {
      result_exponent  = result_exponent + (1 << 23);
   }
   
