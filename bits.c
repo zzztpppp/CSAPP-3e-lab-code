@@ -398,7 +398,7 @@ unsigned floatScale2(unsigned uf) {
   // problem is about those coner cases where we need to 
   // swich the normalized values into subnormalized ones.
 
-  int frac_mask = ((0xFF << 16) - (1 << 23)); 
+  int frac_mask = (((0xFF << 16) +(0xFF << 8) + 0xFF) - (1 << 23)); 
   int exponent = (0xFF << 23) & uf;
   int sign_bit = (1 << 31) & uf;
   int frac = frac_mask & uf;
@@ -407,26 +407,30 @@ unsigned floatScale2(unsigned uf) {
   result_frac = frac;
   result_exponent = exponent;
   // +-inf or NaN case
-  if (!!(exponent ^ 0xFF)) {
+  if (!(exponent ^ (0xFF << 23))) {
       return uf;
-  } 
-  
-  if (!!(exponent ^ 0)) { 
-     // 0 value case
-     if (!sign_bit)
-         return uf;
-     tmp1 = (frac + frac) & frac_mask;
-     if (tmp1 < frac) {
-         result_frac = tmp1;
-	 result_exponent = 127;
-     }
-     if (!(tmp1 < frac)) {
-	 result_frac = tmp1;
-     }
   }
 
+  // Denormalized case 
   if (!(exponent ^ 0)) {
-     result_exponent  = result_exponent + 1;
+     // 0 value case
+     if (!(frac ^ 0))
+         return uf;
+     tmp1 = (frac + frac) & frac_mask;
+
+     // If there is a overflow in
+     // 2 * frac. Convert the number
+     // to normalized case.
+     if (tmp1 < frac) {
+	 result_exponent = 1 << 23;
+     }
+     result_frac = tmp1;
+     
+  }
+
+  // Normalized case
+  if ((exponent ^ 0)) {
+     result_exponent  = result_exponent + (1 << 23);
   }
   
   return sign_bit | result_exponent | result_frac;
