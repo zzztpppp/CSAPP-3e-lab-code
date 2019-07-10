@@ -456,6 +456,11 @@ int floatFloat2Int(unsigned uf) {
   // to the left as much as we can and trancate
   // the what are at the right of the shifted
   // point.
+  // I'm not sure whether - is allowed in float functions,
+  // but when I use -, the dlc checker does'nt complain 
+  // unlike that in the int functions where dlc checker
+  // will complain of the use of -. I just simply assume
+  // that - is a valid operator in float functions.
 
   int frac_mask = (((0xFF << 16) +(0xFF << 8) + 0xFF) - (1 << 23)); 
   int exponent = ((0xFF << 23) & uf) >> 23;
@@ -480,23 +485,25 @@ int floatFloat2Int(unsigned uf) {
           return 0x80000000u;
       }
 
-      exponent = exponent + (~127 + 1);
+      exponent = exponent - 127;
       shift_right = exponent < 23;
       if (shift_right) {
-          exponent = (~exponent + 1) + 23;
+          exponent = 23 - exponent;
 	  frac = frac >> exponent;
       }
 
       if (!shift_right) {
-         exponent = exponent + (~23 + 1);
+         exponent = exponent - 23;
 	 frac = frac << exponent;
       }
       
       if (sign_bit) {
-          frac  = ~frac + 1;
+          frac  = -frac;
       }
   }
-
+  
+  // All numbers in the denormailzed case are less
+  // than 1, just return 0.
   if (!is_exp_zero) {
       frac = 0;
   }
