@@ -445,11 +445,63 @@ unsigned floatScale2(unsigned uf) {
  *   Anything out of range (including NaN and infinity) should return
  *   0x80000000u.
  *   Legal ops: Any integer/unsigned operations incl. ||, &&. also if, while
-
+ *   Max ops: 30
  *   Rating: 4
  */
 int floatFloat2Int(unsigned uf) {
-  return 2;
+  
+  // Thoughts: floating points are 
+  // of 1.xxxx * 2^(e), converting them 
+  // to ints is about shifting the point 
+  // to the left as much as we can and trancate
+  // the what are at the right of the shifted
+  // point.
+
+  int frac_mask = (((0xFF << 16) +(0xFF << 8) + 0xFF) - (1 << 23)); 
+  int exponent = ((0xFF << 23) & uf) >> 23;
+  int sign_bit = (1 << 31) & uf;
+  int frac = frac_mask & uf;
+  int shift_right;
+  int is_exp_zero = exponent ^ 0;
+
+
+  if (!(exponent ^ (0xFF << 23))) {
+      return 0x80000000u;
+  }
+  
+  // Normalized case
+  if (is_exp_zero) {
+      frac = frac + (1 << 23);
+
+      if (exponent < 127) { 
+          return 0; 
+      }
+      if (exponent > 157) {
+          return 0x80000000u;
+      }
+
+      exponent = exponent + (~127 + 1);
+      shift_right = exponent < 23;
+      if (shift_right) {
+          exponent = (~exponent + 1) + 23;
+	  frac = frac >> exponent;
+      }
+
+      if (!shift_right) {
+         exponent = exponent + (~23 + 1);
+	 frac = frac << exponent;
+      }
+      
+      if (sign_bit) {
+          frac  = ~frac + 1;
+      }
+  }
+
+  if (!is_exp_zero) {
+      frac = 0;
+  }
+   
+  return frac;
 }
 /* 
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x
