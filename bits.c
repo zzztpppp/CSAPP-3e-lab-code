@@ -524,5 +524,36 @@ int floatFloat2Int(unsigned uf) {
  *   Rating: 4
  */
 unsigned floatPower2(int x) {
-    return 2;
+    int result_sign = 0;
+    int result_exponent = 0;
+    int result_frac = 0;
+    int is_pos_inf = x > 127;
+    int is_neg_inf = x < (-149);
+    int inf_exponent = 0xFF << 23;
+    int norm2de_boarder = -127;
+    int shift;
+
+    // +-inf case
+    if (is_pos_inf) {
+        result_exponent = inf_exponent;
+    }
+    if (is_neg_inf) {
+        result_sign = 0;
+	result_exponent = 0;
+    }
+
+    // Normalized and denormalized case
+    if ((!is_pos_inf) && (!is_neg_inf)) {
+        result_exponent = x + 127;
+        
+	// Denormalized case
+	if (result_exponent < norm2de_boarder) {
+            shift = norm2de_boarder - result_exponent;
+	    result_frac = 1 << 22;
+            result_frac = result_frac >> shift;
+	}
+	result_exponent = result_exponent << 23;
+    }
+     
+    return result_sign | result_exponent | result_frac;
 }
