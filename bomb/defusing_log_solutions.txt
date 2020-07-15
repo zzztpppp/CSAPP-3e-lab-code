@@ -1,0 +1,5 @@
+This is my thoughts on defusing the bomb lab.
+
+Phase 1:
+  I first tried to disassemble the code in initialize_bomb() and see what was fishy there. But I stuck at some mystery <signal@plt> function call, and after some hours inspecting the code and reading the csapp book, I decided to not bother about this function and dived into the phase_1() function.
+  Yeah, I was heading the right way of inspecting the phase_1() function. I found there is a function call to <strings_equal>, which takes the 0x****(don't remember) as the string pointer and is compared to the user input string. All I have to do is to get the sequential value starting from 0x**** until I hit the null(0x00) and decode them via an ASCII table. Yeah, the solution for phase 1 is "Border relations with Cananda have never been better.". Done!
