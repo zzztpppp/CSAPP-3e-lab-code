@@ -6,3 +6,9 @@ Phase 1:
 
 Phase 2:
   With the knowedge of defusing the first phase, this one is quit easy to begin with. Although the road is a bit winding, every dark corner is enlightened after I understand the function<read_six_numbers>(it shouldn't have stuck me for that long, since the critical part is to understand the famoud <sscanf> c function which I get acquantant with couple of years ago). Then what's been left is just some common arithmic logic wouldn't be difficult to follow.
+
+Phase 3:
+  Under defusing previous phases, this one comes rather straight fowward. Following the arithmic logic would give us the solution easily. But there is some codes seem "redundant", maybe they are for generating mulitple solutions for this problem??
+
+--edit--
+The code is not redundant. These different code segments are invoked based on the firt argument we feed the bomb. There is a line like "jmp *0x...(, $rax, 8)"that jumps to a specific line and execute its following code determined by our firt argument which is stored in $rsp + 8.
