@@ -18,3 +18,6 @@ The code is not redundant. These different code segments are invoked based on th
 
 Phase 4
   This phase does't have any tricky operations. All we need to do is to follow the operation logic and figure out what they are doing as a whole. 
+
+Phase 5
+  The only mystery operation here before I start defusing is that the set of canary value. It is discussed at the page 286 of the book. The whole problem is to find keys that after being "and"ed with 0xf, character by character, will map to the word "flyers".
