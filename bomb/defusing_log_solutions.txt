@@ -21,3 +21,7 @@ Phase 4
 
 Phase 5
   The only mystery operation here before I start defusing is that the set of canary value. It is discussed at the page 286 of the book. The whole problem is to find keys that after being "and"ed with 0xf, character by character, will map to the word "flyers".
+
+Phase 6:
+  Dr Evil really speaks for his name to set up this phase. A very headaching phase to have endless jumps and loops and magic numbers...
+  OK. Finally this phase has been defused after a week's effort. Basically, the number we input to the bomb is used as the offset to compute the addresses that are indexed from 0x6032d0, that is, if input number is 1, then the address generated is 0x603320 and 0x6032do if 6. These addresses are stored continunously on stack according to the order they get in. Now, here comes the critical part: we have to ensure the values those memory points to are monotonically increasing given the order that our inputs come in.
