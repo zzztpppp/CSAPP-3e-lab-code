@@ -1,3 +1,7 @@
 Level one:
     Simple one. Just figure out where the return address is stored on stack, and input a string with the injection address on tail.
 
+Level two:
+    Key-point 1: Instructions are coded continuoesly i.e. they don't pad as a 8 byte long code.
+
+    Key-point 2: ret instruction just take whatever poped from the stack as its return address
