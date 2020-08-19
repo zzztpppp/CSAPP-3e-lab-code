@@ -12,3 +12,6 @@ Level two:
 Level three:
     Nothing special as the preivous one, just be careful when computing string pointer and the injection code address.
 
+
+Level four:
+    Not hard, just inject desired gadget address and data onto stack. The key point here is to find these gadgets...just like substring matching with a mache code table as help.
