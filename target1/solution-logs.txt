@@ -5,3 +5,9 @@ Level two:
     Key-point 1: Instructions are coded continuoesly i.e. they don't pad as a 8 byte long code.
 
     Key-point 2: ret instruction just take whatever poped from the stack as its return address
+
+
+
+
+Level four:
+    Not hard, just inject desired gadget address and data onto stack. The key point here is to find these gadgets...just like substring matching with a mache code table as help.
