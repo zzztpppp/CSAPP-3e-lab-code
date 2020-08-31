@@ -86,6 +86,14 @@ int * get_cache_location(char* addr, int num_set_bits, int associativity) {
 }
 
 
+/* Given the memory trace as a file, simulate the cache operations and 
+ * report number of hits, misses, evictions in the form of an array */
+int* simulate_cache_operation(char *trace_file, unsigned long *cache_sim,
+		int num_set_bits, int associativity, int num_block_bits){
+	/* Go! */
+}
+
+
 int main(int argc, char *argv[])
 {
     int num_set_bits = -1;
@@ -93,9 +101,10 @@ int main(int argc, char *argv[])
     int num_block_bits = -1;
     int verbose_flag = 0;
     int help_flag = 0;
-    char *input_file_name;
+    char *trace_file_name;
+    int results[3];
 
-    int * cache_sim;
+    unsigned long* cache_sim;
 
     int c;
     
@@ -118,7 +127,7 @@ int main(int argc, char *argv[])
                 num_block_bits = atoi(optarg);
                 break;
             case 't':
-                input_file_name = optarg;
+                trace_file_name = optarg;
                 break;
             case '?':
             default:
@@ -141,9 +150,14 @@ int main(int argc, char *argv[])
     }
 
     /* The simulated cache */
-    cache_sim = 
+    cache_sim = malloc(ulong_power(2u, num_set_bits) * associativity);
 
-    printSummary(0, 0, 0);
+    /* Read memory trace line by line and simulate cache operation */
+    resluts = simulate_cache_operation(trace_file_name, cache_sim, num_set_bits,
+		    associativity, num_block_bits);
+
+
+    printSummary(results[0], results[1], results[2]);
     return 0;
 }
 
