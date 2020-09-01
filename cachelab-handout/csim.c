@@ -1,6 +1,7 @@
 #include "cachelab.h"
 #include <getopt.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 /* Helper function to calculated unsigned 
@@ -85,12 +86,40 @@ int * get_cache_location(char* addr, int num_set_bits, int associativity) {
     unsigned long addr_unint = covert_hex_string(addr);
 }
 
+/* Read one line from the given file stream */
+char *read_line(FILE *file_stream){
+    /* The maximum length of a line is limited to 20 characters long*/
+    char buffer[20] = {0};
+    int i = 0;
+    char c;
+
+    while ((!(c = fgetc(file_stream))) && (i < 20)){
+        if (c == 10){
+            break;
+        }
+        buffer[i] = c;
+        i++;
+    }
+
+    return buffer;
+}
+
 
 /* Given the memory trace as a file, simulate the cache operations and 
  * report number of hits, misses, evictions in the form of an array */
 int* simulate_cache_operation(char *trace_file, unsigned long *cache_sim,
-		int num_set_bits, int associativity, int num_block_bits){
-	/* Go! */
+	    int num_set_bits, int associativity, int num_block_bits){
+
+    FILE *trace;
+    int cache_behavior[3] = {0, 0, 0};
+
+    if (!(trace = fopen(trace_file, 'r'))){
+        printf("Couln't open file %s\n", trace_file);
+        exit(8);
+    }
+
+    /* Read memeory trace line by line */
+     
 }
 
 
@@ -153,7 +182,7 @@ int main(int argc, char *argv[])
     cache_sim = malloc(ulong_power(2u, num_set_bits) * associativity);
 
     /* Read memory trace line by line and simulate cache operation */
-    resluts = simulate_cache_operation(trace_file_name, cache_sim, num_set_bits,
+    results = simulate_cache_operation(trace_file_name, cache_sim, num_set_bits,
 		    associativity, num_block_bits);
 
 
