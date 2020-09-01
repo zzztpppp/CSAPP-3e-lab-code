@@ -82,26 +82,53 @@ unsigned long hex_to_ulong(char c) {
 
 /* Given the memory address, 
  * return the corresponding index of the cache */
-int * get_cache_location(char* addr, int num_set_bits, int associativity) {
+unsigned long get_cache_set(char* addr, int num_set_bits, int num_block_bits) {
     unsigned long addr_unint = covert_hex_string(addr);
+    return extract_bit_as_uint(addr_unint, 64-num_set_bits - num_block_bits, 
+                               64 - num_block_bits);
 }
 
-/* Read one line from the given file stream */
-char *read_line(FILE *file_stream){
+unsigned long get_cache_tag(char* addr, int num_set_bits, int num_block_bits){
+    unsigned long addr_uint = covert_hex_string(addr);
+    return extract_bit_as_uint(addr_uint, 0, 64 - num_block_bits - num_set_bits - 1);
+} 
+
+/* Read one line from the given the memory trace
+ * file stream(each line is limited to 20 characters long) */
+char *read_trace_line(FILE *file_stream){
     /* The maximum length of a line is limited to 20 characters long*/
-    char buffer[20] = {0};
     int i = 0;
+	char *buffer = malloc(20);
     char c;
 
-    while ((!(c = fgetc(file_stream))) && (i < 20)){
-        if (c == 10){
-            break;
+    while ((!feof(file_stream)) && (i < 20)){
+        c = fgetc(file_stream);
+            if (c == 10){
+                break;
+            }
+        if (feof(file_stream)){
+            return NULL; 
         }
+
         buffer[i] = c;
         i++;
     }
 
     return buffer;
+}
+
+
+/* Helper function that extract the hex address of a memory opeartion */
+char *hex_address(char *operation){
+    char *address_hex;
+    int seperator_index;
+
+    address_hex = operation + 3;
+    seperator_index = strchr(address_hex, ',') - address_hex;
+
+    // Set the seperator to null to end our address hex.
+    address_hex[seperator_index] = '\0';
+    return address_hex;
 }
 
 
@@ -111,7 +138,11 @@ int* simulate_cache_operation(char *trace_file, unsigned long *cache_sim,
 	    int num_set_bits, int associativity, int num_block_bits){
 
     FILE *trace;
-    int cache_behavior[3] = {0, 0, 0};
+    char *operation_line, operation_address_hex;
+    int *cache_behavior = malloc(sizeof(int) * 3);
+    char operation_type;
+    char *tmp;
+    unsigned long set_index, tag_value;
 
     if (!(trace = fopen(trace_file, 'r'))){
         printf("Couln't open file %s\n", trace_file);
@@ -119,7 +150,18 @@ int* simulate_cache_operation(char *trace_file, unsigned long *cache_sim,
     }
 
     /* Read memeory trace line by line */
-     
+    whlie(1){
+        operation_line = read_trace_line(trace);
+        if (operation_line == NULL){break;} 
+        
+        /* Ignore intructional memeory trace */
+        if (operation_line[0] == 'I') {continue;}
+
+        operation_type = operation_line[1];
+        operation_address_hex = hex_address(operation_line);
+        set_index = get_cache_set(operation_address_hex, num_set_bits, num_block_bits);
+        tag_value = get_cache_tag(operation_address_hex,num_set_bits, num_block_bits);
+    } 
 }
 
 

@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-char *read_line(FILE *file_stream, char *buffer){
+char *read_trace_line(FILE *file_stream){
     /* The maximum length of a line is limited to 20 characters long*/
     int i = 0;
-    int l = strlen(buffer);
+	char *buffer = malloc(20);
     char c;
 
 
@@ -14,7 +14,7 @@ char *read_line(FILE *file_stream, char *buffer){
             break;
         }
 	if (feof(file_stream)){
-	   break;
+	   return NULL; 
 	}
         buffer[i] = c;
         i++;
@@ -64,19 +64,22 @@ unsigned long hex_to_ulong(char c) {
 int main(int argc, char *argv[]) {
     unsigned long r; 
     FILE *f;
-    char *f_name = "csim.c";
-    char buffer[20] = {0};
-    char buffer2[20] = {0};
-    printf("File to open is %s\n", f_name);
+    char *f_name = argv[1];
+	char *line;
     
 	f = fopen(f_name, "r");
 	if (f == NULL){
 		printf("Failed to open");
-
+		exit(8);
 	   }
-	printf("File open sucessfully\n");
-	printf("%s\n", read_line(f, buffer));
-	printf("%s\n", read_line(f, buffer2));
+
+    while (1){
+        line = read_trace_line(f);
+		if (line == NULL){
+			break;
+		}
+		printf("%s\n", line);
+	}
 
 	return 0;
 }
