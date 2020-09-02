@@ -4,6 +4,14 @@
 #include <stdio.h>
 #include <string.h>
 
+typedef struct  CacheLine
+{
+    unsigned long tag_vale;
+    short valid;
+    short age;
+};
+
+
 /* Helper function to calculated unsigned 
  * integer power
  */
@@ -141,8 +149,13 @@ int* simulate_cache_operation(char *trace_file, unsigned long *cache_sim,
     char *operation_line, operation_address_hex;
     int *cache_behavior = malloc(sizeof(int) * 3);
     char operation_type;
-    char *tmp;
     unsigned long set_index, tag_value;
+
+    /* valid bits to keep track if the cache block is initiallty empty
+     * age bits to keep track of when was the cache block last userd */
+    int valid_bits[ulong_power(2u, num_set_bits)*associativity];
+    int age_bits[ulong_power(2u, num_set_bits) *associativity];
+
 
     if (!(trace = fopen(trace_file, 'r'))){
         printf("Couln't open file %s\n", trace_file);
@@ -157,6 +170,7 @@ int* simulate_cache_operation(char *trace_file, unsigned long *cache_sim,
         /* Ignore intructional memeory trace */
         if (operation_line[0] == 'I') {continue;}
 
+        // Parse the operation tye, operation address from line 
         operation_type = operation_line[1];
         operation_address_hex = hex_address(operation_line);
         set_index = get_cache_set(operation_address_hex, num_set_bits, num_block_bits);
