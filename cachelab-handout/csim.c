@@ -9,7 +9,16 @@ typedef struct  CacheLine
     unsigned long tag_vale;
     short valid;
     short age;
-};
+} cache_line;
+
+void initialize_cache_lines(cache_line *cf, int num_lines){
+
+    for (int i = 0; i < num_lines; i++){
+        cf[i].age = 0;
+        cf[i].valid = 0;
+        cf[i].tag_vale = 0;
+    }
+}
 
 
 /* Helper function to calculated unsigned 
@@ -142,7 +151,7 @@ char *hex_address(char *operation){
 
 /* Given the memory trace as a file, simulate the cache operations and 
  * report number of hits, misses, evictions in the form of an array */
-int* simulate_cache_operation(char *trace_file, unsigned long *cache_sim,
+int* simulate_cache_operation(char *trace_file, cache_line *cache_sim,
 	    int num_set_bits, int associativity, int num_block_bits){
 
     FILE *trace;
@@ -187,11 +196,11 @@ int main(int argc, char *argv[])
     int verbose_flag = 0;
     int help_flag = 0;
     char *trace_file_name;
-    int results[3];
+    int *results;
 
-    unsigned long* cache_sim;
+    cache_line* cache_sim;
 
-    int c;
+    int c, num_lines;
     
     /* Parse command line arguements*/
     while ((c = getopt(argc, argv, "hvs:E:b:t:")) != -1){
@@ -235,7 +244,9 @@ int main(int argc, char *argv[])
     }
 
     /* The simulated cache */
-    cache_sim = malloc(ulong_power(2u, num_set_bits) * associativity);
+    num_lines = ulong_power(2u,num_set_bits) * associativity;
+    cache_sim = malloc(num_lines *sizeof(cache_line));
+    initialize_cache_lines(cache_sim, num_lines);
 
     /* Read memory trace line by line and simulate cache operation */
     results = simulate_cache_operation(trace_file_name, cache_sim, num_set_bits,
