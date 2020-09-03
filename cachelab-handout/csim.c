@@ -6,7 +6,7 @@
 
 typedef struct  CacheLine
 {
-    unsigned long tag_vale;
+    unsigned long tag_value;
     short valid;
     short age;
 } cache_line;
@@ -148,6 +148,55 @@ char *hex_address(char *operation){
     return address_hex;
 }
 
+/* Given instruction type, set index and tag value
+ * return whether we hit or miss the cache, alter the 
+ * cache contends accordingly */
+int operate_cache(cache_line *cache_sim, unsigned long set_index, 
+                  unsigned long tag_value, unsigned long associativity, int age){
+    cache_line *set_addr;
+    cache_line current_line;
+    unsigned long off_set = set_index * associativity; 
+    int min_age = 0;
+    int min_age_index = 0;
+
+    set_addr = cache_sim + off_set;
+
+    // Linear search for tag a value hit
+    for (int i = 0; i < associativity; i++){
+        current_line = set_addr[i];
+        if (current_line.valid == 1){
+            if (current_line.tag_value == tag_value){ return 1;}
+        }
+    }
+
+    // If its a miss, find a empty line
+    for (int i = 0; i < associativity; i++){
+        current_line = set_addr[i];
+        if (current_line.valid == 0){
+            // Found an empty line, fill the value of current instruction
+            current_line.valid = 1;
+            current_line.tag_value = tag_value;
+            current_line.age = age;
+            return 2;
+        }
+    }
+
+    // No empty line? Find the oldest line to evict
+    for (int i = 0; i < associativity; i++){
+        current_line = set_addr[i];
+        if (current_line.age <= min_age){
+            min_age = current_line.age;
+            min_age_index = i;
+        } 
+    }
+
+    // Evict
+    current_line.tag_value = tag_value;
+    current_line.age = age;
+    return 3;
+
+}
+
 
 /* Given the memory trace as a file, simulate the cache operations and 
  * report number of hits, misses, evictions in the form of an array */
@@ -156,9 +205,12 @@ int* simulate_cache_operation(char *trace_file, cache_line *cache_sim,
 
     FILE *trace;
     char *operation_line, operation_address_hex;
-    int *cache_behavior = malloc(sizeof(int) * 3);
+    int cache_behavior[3] = {0, 0, 0};
     char operation_type;
     unsigned long set_index, tag_value;
+
+    int cache_result;
+    int age = 0;
 
     /* valid bits to keep track if the cache block is initiallty empty
      * age bits to keep track of when was the cache block last userd */
@@ -172,7 +224,7 @@ int* simulate_cache_operation(char *trace_file, cache_line *cache_sim,
     }
 
     /* Read memeory trace line by line */
-    whlie(1){
+    while(1){
         operation_line = read_trace_line(trace);
         if (operation_line == NULL){break;} 
         
@@ -184,7 +236,12 @@ int* simulate_cache_operation(char *trace_file, cache_line *cache_sim,
         operation_address_hex = hex_address(operation_line);
         set_index = get_cache_set(operation_address_hex, num_set_bits, num_block_bits);
         tag_value = get_cache_tag(operation_address_hex,num_set_bits, num_block_bits);
+
+        cache_result = operate_cache(cache_sim, set_index, tag_value, associativity, age);
+        cache_behavior[cache_result] += 1; 
     } 
+
+    return cache_behavior;
 }
 
 
