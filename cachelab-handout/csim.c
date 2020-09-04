@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 typedef struct  CacheLine
 {
@@ -37,6 +38,7 @@ unsigned long ulong_power(unsigned long x, unsigned long y) {
 /* Helper function to convert 4-bit hex to unsigned int. */
 unsigned long hex_to_ulong(char c) {
     unsigned long result;
+    c = toupper(c);
 
     if ((c >= 48) && (c <= 57)){
         result = c - 48;
@@ -161,46 +163,49 @@ char *hex_address(char *operation){
 int operate_cache(cache_line *cache_sim, unsigned long set_index, 
                   unsigned long tag_value, unsigned long associativity, int age){
     cache_line *set_addr;
-    cache_line current_line;
+    cache_line *current_line;
     unsigned long off_set = set_index * associativity; 
-    int min_age = 0;
+    int min_age = age;
     int min_age_index = 0;
 
     set_addr = cache_sim + off_set;
-    printf("set_addr: %lu", set_addr);
+    // printf("set_addr: %p ", set_addr);
 
     // Linear search for tag a value hit
     for (int i = 0; i < associativity; i++){
-        current_line = set_addr[i];
-        if (current_line.valid == 1){
-            if (current_line.tag_value == tag_value){ return 1;}
+        current_line = &set_addr[i];
+        if (current_line->valid == 1){
+            if (current_line->tag_value == tag_value){ 
+                current_line->age = age;
+                return 1;
+            }
         }
     }
 
     // If its a miss, find a empty line
     for (int i = 0; i < associativity; i++){
-        current_line = set_addr[i];
-        if (current_line.valid == 0){
+        current_line = &set_addr[i];
+        if (current_line->valid == 0){
             // Found an empty line, fill the value of current instruction
-            current_line.valid = 1;
-            current_line.tag_value = tag_value;
-            current_line.age = age;
+            current_line->valid = 1;
+            current_line->tag_value = tag_value;
+            current_line->age = age;
             return 2;
         }
     }
 
     // No empty line? Find the oldest line to evict
     for (int i = 0; i < associativity; i++){
-        current_line = set_addr[i];
-        if (current_line.age <= min_age){
-            min_age = current_line.age;
+        current_line = &set_addr[i];
+        if (current_line->age <= min_age){
+            min_age = current_line->age;
             min_age_index = i;
         } 
     }
 
     // Evict
-    current_line.tag_value = tag_value;
-    current_line.age = age;
+    (set_addr[min_age_index]).tag_value = tag_value;
+    (set_addr[min_age_index]).age = age;
     return 3;
 
 }
@@ -250,11 +255,9 @@ int* simulate_cache_operation(char *trace_file, cache_line *cache_sim,
         operation_type = operation_line[1];
         operation_address_hex = hex_address(operation_line);
         set_index = get_cache_set(operation_address_hex, num_set_bits, num_block_bits);
-        printf("set_indxe:%lu ", set_index);
 
         tag_value = get_cache_tag(operation_address_hex,num_set_bits, num_block_bits);
 
-        printf("tag_value:%lu ", tag_value);
         cache_result = operate_cache(cache_sim, set_index, tag_value, associativity, age);
 
         strcpy(verbose_string, operation_line);
@@ -287,6 +290,7 @@ int* simulate_cache_operation(char *trace_file, cache_line *cache_sim,
         if (verbose){
             printf("%s\n", verbose_string);
         }
+        age++;
     } 
 
     return cache_behavior;
