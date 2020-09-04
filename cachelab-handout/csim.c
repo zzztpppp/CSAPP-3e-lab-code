@@ -167,6 +167,7 @@ int operate_cache(cache_line *cache_sim, unsigned long set_index,
     int min_age_index = 0;
 
     set_addr = cache_sim + off_set;
+    printf("set_addr: %lu", set_addr);
 
     // Linear search for tag a value hit
     for (int i = 0; i < associativity; i++){
