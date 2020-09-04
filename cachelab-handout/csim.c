@@ -76,7 +76,6 @@ unsigned long hex_to_ulong(char c) {
      
      int width, bits_to_left, bits_to_right;
      unsigned long mask = 0xFFFFFFFF;
-     printf("%lx ", address);
 
      if (low > high){
          printf("Arugment low must not be greater than arguement high\n");
@@ -88,7 +87,7 @@ unsigned long hex_to_ulong(char c) {
 
      width = high - low + 1;
      bits_to_left = low;
-     bits_to_right = 64 - high;
+     bits_to_right = 64 - high -1;
 
      /* Craft the mask for the corresponding address segment */
      mask = ((mask << bits_to_left) >> (bits_to_left + bits_to_right)) << bits_to_right;  
@@ -102,13 +101,20 @@ unsigned long hex_to_ulong(char c) {
  * return the corresponding index of the cache */
 unsigned long get_cache_set(char* addr, int num_set_bits, int num_block_bits) {
     unsigned long addr_unint = convert_hex_string(addr);
-    return extract_bit_as_uint(addr_unint, 64-num_set_bits - num_block_bits, 
-                               64 - num_block_bits);
+    unsigned long result;
+    int low, high;
+    low = 64-num_set_bits - num_block_bits;
+    high = 64 - num_block_bits-1;
+    result = extract_bit_as_uint(addr_unint, low, high);
+    return result;
+        
 }
 
 unsigned long get_cache_tag(char* addr, int num_set_bits, int num_block_bits){
     unsigned long addr_uint = convert_hex_string(addr);
-    return extract_bit_as_uint(addr_uint, 0, 64 - num_block_bits - num_set_bits - 1);
+    unsigned long result;
+    result = extract_bit_as_uint(addr_uint, 0, 64 - num_block_bits - num_set_bits - 1);
+    return result;
 } 
 
 /* Read one line from the given the memory trace
@@ -243,12 +249,11 @@ int* simulate_cache_operation(char *trace_file, cache_line *cache_sim,
         operation_type = operation_line[1];
         operation_address_hex = hex_address(operation_line);
         set_index = get_cache_set(operation_address_hex, num_set_bits, num_block_bits);
-        printf("%s ", operation_address_hex);
-        printf("%lu ", set_index);
-        printf("%lu ", tag_value);
+        printf("set_indxe:%lu ", set_index);
 
         tag_value = get_cache_tag(operation_address_hex,num_set_bits, num_block_bits);
 
+        printf("tag_value:%lu ", tag_value);
         cache_result = operate_cache(cache_sim, set_index, tag_value, associativity, age);
 
         strcpy(verbose_string, operation_line);
