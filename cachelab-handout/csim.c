@@ -16,7 +16,7 @@ void initialize_cache_lines(cache_line *cf, int num_lines){
     for (int i = 0; i < num_lines; i++){
         cf[i].age = 0;
         cf[i].valid = 0;
-        cf[i].tag_vale = 0;
+        cf[i].tag_value = 0;
     }
 }
 
@@ -100,13 +100,13 @@ unsigned long hex_to_ulong(char c) {
 /* Given the memory address, 
  * return the corresponding index of the cache */
 unsigned long get_cache_set(char* addr, int num_set_bits, int num_block_bits) {
-    unsigned long addr_unint = covert_hex_string(addr);
+    unsigned long addr_unint = convert_hex_string(addr);
     return extract_bit_as_uint(addr_unint, 64-num_set_bits - num_block_bits, 
                                64 - num_block_bits);
 }
 
 unsigned long get_cache_tag(char* addr, int num_set_bits, int num_block_bits){
-    unsigned long addr_uint = covert_hex_string(addr);
+    unsigned long addr_uint = convert_hex_string(addr);
     return extract_bit_as_uint(addr_uint, 0, 64 - num_block_bits - num_set_bits - 1);
 } 
 
@@ -204,8 +204,9 @@ int* simulate_cache_operation(char *trace_file, cache_line *cache_sim,
 	    int num_set_bits, int associativity, int num_block_bits){
 
     FILE *trace;
-    char *operation_line, operation_address_hex;
-    int cache_behavior[3] = {0, 0, 0};
+    char *operation_line;
+    char *operation_address_hex;
+    int *cache_behavior = malloc(sizeof(int) * 3);
     char operation_type;
     unsigned long set_index, tag_value;
 
@@ -216,9 +217,14 @@ int* simulate_cache_operation(char *trace_file, cache_line *cache_sim,
      * age bits to keep track of when was the cache block last userd */
     int valid_bits[ulong_power(2u, num_set_bits)*associativity];
     int age_bits[ulong_power(2u, num_set_bits) *associativity];
+    
+    // Initialize cache behavior to 0s
+    for (int i = 0; i < 3; i++){
+        cache_behavior[i] = 0;
+    }
 
 
-    if (!(trace = fopen(trace_file, 'r'))){
+    if (!(trace = fopen(trace_file, "r"))){
         printf("Couln't open file %s\n", trace_file);
         exit(8);
     }
@@ -238,10 +244,33 @@ int* simulate_cache_operation(char *trace_file, cache_line *cache_sim,
         tag_value = get_cache_tag(operation_address_hex,num_set_bits, num_block_bits);
 
         cache_result = operate_cache(cache_sim, set_index, tag_value, associativity, age);
-        cache_behavior[cache_result] += 1; 
+
+        // Simply a hit
+        if (cache_result == 1){
+            cache_behavior[1] += 1;
+        } 
+        // Simply as miss
+        else if (cache_result == 2){
+            cache_behavior[2] += 1; 
+        }
+        // A miss and an eviction
+        else if (cache_result == 3){
+            cache_behavior[2] += 1;
+            cache_behavior[3] += 1;
+        }
+        else {
+            printf("Undefined cache result %d\n", cache_result);
+            exit(8);
+        }
     } 
 
     return cache_behavior;
+}
+
+
+/* Summary function */
+void printSummary(int hits, int misses, int evictions){
+    printf("hits:%d misses:%d evictions:%d\n", hits, misses, evictions);
 }
 
 
@@ -313,6 +342,3 @@ int main(int argc, char *argv[])
     printSummary(results[0], results[1], results[2]);
     return 0;
 }
-
-
-
