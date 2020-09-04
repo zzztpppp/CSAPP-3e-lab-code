@@ -62,7 +62,7 @@ unsigned long hex_to_ulong(char c) {
      unsigned long result = 0u;
 
      for(unsigned long i = 0u; i < length; i++){
-        result = ulong_power(16u, i) * hex_to_ulong(hex_string[i]) + result;
+        result = ulong_power(16u, length - 1 -i) * hex_to_ulong(hex_string[i]) + result;
      }
 
      return result;
@@ -76,6 +76,7 @@ unsigned long hex_to_ulong(char c) {
      
      int width, bits_to_left, bits_to_right;
      unsigned long mask = 0xFFFFFFFF;
+     printf("%lx ", address);
 
      if (low > high){
          printf("Arugment low must not be greater than arguement high\n");
@@ -201,11 +202,12 @@ int operate_cache(cache_line *cache_sim, unsigned long set_index,
 /* Given the memory trace as a file, simulate the cache operations and 
  * report number of hits, misses, evictions in the form of an array */
 int* simulate_cache_operation(char *trace_file, cache_line *cache_sim,
-	    int num_set_bits, int associativity, int num_block_bits){
+	    int num_set_bits, int associativity, int num_block_bits, int verbose){
 
     FILE *trace;
     char *operation_line;
     char *operation_address_hex;
+    char *verbose_string = malloc(sizeof(char) * 20);
     int *cache_behavior = malloc(sizeof(int) * 3);
     char operation_type;
     unsigned long set_index, tag_value;
@@ -241,26 +243,43 @@ int* simulate_cache_operation(char *trace_file, cache_line *cache_sim,
         operation_type = operation_line[1];
         operation_address_hex = hex_address(operation_line);
         set_index = get_cache_set(operation_address_hex, num_set_bits, num_block_bits);
+        printf("%s ", operation_address_hex);
+        printf("%lu ", set_index);
+        printf("%lu ", tag_value);
+
         tag_value = get_cache_tag(operation_address_hex,num_set_bits, num_block_bits);
 
         cache_result = operate_cache(cache_sim, set_index, tag_value, associativity, age);
 
+        strcpy(verbose_string, operation_line);
         // Simply a hit
         if (cache_result == 1){
-            cache_behavior[1] += 1;
+            cache_behavior[0] += 1;
+            strcat(verbose_string, " hit");
         } 
         // Simply as miss
         else if (cache_result == 2){
-            cache_behavior[2] += 1; 
+            cache_behavior[1] += 1; 
+            strcat(verbose_string, " miss");
         }
         // A miss and an eviction
         else if (cache_result == 3){
+            cache_behavior[1] += 1;
             cache_behavior[2] += 1;
-            cache_behavior[3] += 1;
+            strcat(verbose_string, " miss eviction");
         }
         else {
             printf("Undefined cache result %d\n", cache_result);
             exit(8);
+        }
+
+        if (operation_type == 'M'){
+            cache_behavior[0] += 1;
+            strcat(verbose_string, " hit");
+        }
+    
+        if (verbose){
+            printf("%s\n", verbose_string);
         }
     } 
 
@@ -336,7 +355,7 @@ int main(int argc, char *argv[])
 
     /* Read memory trace line by line and simulate cache operation */
     results = simulate_cache_operation(trace_file_name, cache_sim, num_set_bits,
-		    associativity, num_block_bits);
+		    associativity, num_block_bits, verbose_flag);
 
 
     printSummary(results[0], results[1], results[2]);
