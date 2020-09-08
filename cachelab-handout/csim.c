@@ -76,7 +76,7 @@ unsigned long hex_to_ulong(char c) {
   * and tag values of a 64-bit address */
  unsigned long extract_bit_as_uint(unsigned long address, int low, int high){
      
-     int width, bits_to_left, bits_to_right;
+     int bits_to_left, bits_to_right;
      unsigned long mask = 0xFFFFFFFF;
 
      if (low > high){
@@ -87,7 +87,6 @@ unsigned long hex_to_ulong(char c) {
          printf("Arguement low and high must be in between 0 and 64");
      }
 
-     width = high - low + 1;
      bits_to_left = low;
      bits_to_right = 64 - high -1;
 
@@ -227,11 +226,6 @@ int* simulate_cache_operation(char *trace_file, cache_line *cache_sim,
     int cache_result;
     int age = 0;
 
-    /* valid bits to keep track if the cache block is initiallty empty
-     * age bits to keep track of when was the cache block last userd */
-    int valid_bits[ulong_power(2u, num_set_bits)*associativity];
-    int age_bits[ulong_power(2u, num_set_bits) *associativity];
-    
     // Initialize cache behavior to 0s
     for (int i = 0; i < 3; i++){
         cache_behavior[i] = 0;
@@ -298,9 +292,9 @@ int* simulate_cache_operation(char *trace_file, cache_line *cache_sim,
 
 
 /* Summary function */
-void printSummary(int hits, int misses, int evictions){
-    printf("hits:%d misses:%d evictions:%d\n", hits, misses, evictions);
-}
+// void printSummary(int hits, int misses, int evictions){
+//     printf("hits:%d misses:%d evictions:%d\n", hits, misses, evictions);
+// }
 
 
 int main(int argc, char *argv[])
@@ -343,7 +337,10 @@ int main(int argc, char *argv[])
                 printf("./csim failed to parse its arguements.\n");
         }
     }
+    if (help_flag) {
+        printf("Usage: ./csim-ref [-hv] -s <s> -E <E> -b <b> -t <tracefile>");
 
+    }
     /* Assert the necessary arguements are fed */
     if (num_set_bits == -1){
         printf("Number of set bits is not fed through -s option\n");
@@ -359,7 +356,7 @@ int main(int argc, char *argv[])
     }
 
     /* The simulated cache */
-    num_lines = ulong_power(2u,num_set_bits) * associativity;
+    num_lines = (1u << num_set_bits) * associativity;
     cache_sim = malloc(num_lines *sizeof(cache_line));
     initialize_cache_lines(cache_sim, num_lines);
 
