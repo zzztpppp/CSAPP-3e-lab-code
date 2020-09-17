@@ -12,6 +12,7 @@
 
 int is_transpose(int M, int N, int A[N][M], int B[M][N]);
 
+
 /* 
  * transpose_submit - This is the solution transpose function that you
  *     will be graded on for Part B of the assignment. Do not change
@@ -22,6 +23,36 @@ int is_transpose(int M, int N, int A[N][M], int B[M][N]);
 char transpose_submit_desc[] = "Transpose submission";
 void transpose_submit(int M, int N, int A[N][M], int B[M][N])
 {
+    // Split the original matrices into 4x4 blocks
+    int sub_n = 0;
+    int sub_m = 0;
+    
+    int block_size = 4;
+    int n_b = N / block_size;
+    int m_b = M / block_size;
+    int tmp;
+    int row_remainder = N % block_size;
+    int column_remainder = M % block_size;
+    if (row_remainder > 0){ n_b += 1;}
+    if (column_remainder > 0){ m_b += 1; }
+
+    if (N == 32) { block_size = 8; }
+    if (N == 61) { block_size = 16; }
+
+
+    for (int i = 0; i < n_b; i++){
+        sub_n = i*block_size;
+        for (int j = 0; j < m_b; j++){
+            sub_m = j*block_size;
+            for (int ii = sub_n; ii < sub_n + ((i < n_b - 1) || (row_remainder == 0) ? block_size: row_remainder); ii++){
+                for (int jj = sub_m; jj < sub_m + ((j < m_b - 1) || (column_remainder == 0)?block_size:column_remainder); jj++){
+                    tmp = A[ii][jj];
+                    B[jj][ii] = tmp;
+                }
+            }
+
+        } 
+    }
 }
 
 /* 
@@ -36,15 +67,26 @@ char trans_desc[] = "Simple row-wise scan transpose";
 void trans(int M, int N, int A[N][M], int B[M][N])
 {
     int i, j, tmp;
-
+    
     for (i = 0; i < N; i++) {
         for (j = 0; j < M; j++) {
             tmp = A[i][j];
             B[j][i] = tmp;
         }
     }    
-
 }
+
+char trans_c_desc[] = "Simple columnwise scan transpose";
+void trans_c(int M, int N, int A[N][M], int B[M][N]){
+    int i, j, tmp;
+    for (j = 0; j < M; j++){
+        for (i = 0; i < N; i++){
+            tmp = A[i][j];
+            B[j][i] = tmp;
+        }
+    }
+}
+
 
 /*
  * registerFunctions - This function registers your transpose
@@ -60,6 +102,8 @@ void registerFunctions()
 
     /* Register any additional transpose functions */
     registerTransFunction(trans, trans_desc); 
+
+    // registerTransFunction(trans_c, trans_c_desc);
 
 }
 
