@@ -282,7 +282,7 @@ int* simulate_cache_operation(char *trace_file, cache_line *cache_sim,
         }
     
         if (verbose){
-            printf("%s\n", verbose_string);
+            printf("%s set_index:%lu tag_value:%lu\n", verbose_string, set_index, tag_value);
         }
         age++;
     } 

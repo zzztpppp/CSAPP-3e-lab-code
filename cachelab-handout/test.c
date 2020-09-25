@@ -61,25 +61,43 @@ unsigned long hex_to_ulong(char c) {
 			     return result;
 			      }
 
+ /* Mask and extract bit values as unsigned int on a 64-bit address.
+  * given the bit posistion. Which is used for extracting set address
+  * and tag values of a 64-bit address */
+ unsigned long extract_bit_as_uint(unsigned long address, int low, int high){
+     
+     int width, bits_to_left, bits_to_right;
+     unsigned long mask = 0xFFFFFFFF;
+     printf("addr:%lx ", address);
+
+     if (low > high){
+         printf("Arugment low must not be greater than arguement high\n");
+         exit(1);
+     }
+     if ((low < 0) || (high) > 64){
+         printf("Arguement low and high must be in between 0 and 64");
+     }
+
+     width = high - low + 1;
+     bits_to_left = low;
+     bits_to_right = 64 - high - 1;
+
+     /* Craft the mask for the corresponding address segment */
+     mask = ((mask << bits_to_left) >> (bits_to_left + bits_to_right)) << bits_to_right;  
+	 printf("mask:%lx ", mask);
+
+     return (mask & address) >> bits_to_right; 
+ }
+
 int main(int argc, char *argv[]) {
-    unsigned long r; 
-    FILE *f;
-    char *f_name = argv[1];
-	char *line;
     
-	f = fopen(f_name, "r");
-	if (f == NULL){
-		printf("Failed to open");
-		exit(8);
-	   }
-
-    while (1){
-        line = read_trace_line(f);
-		if (line == NULL){
-			break;
-		}
-		printf("%s\n", line);
-	}
-
-	return 0;
+	int in;
+	int low, high;
+	unsigned long r;
+    in = atoi(argv[1]);
+	low = atoi(argv[2]);
+	high = atoi(argv[3]);
+	r = extract_bit_as_uint(in, low, high);
+	printf("result:%lu\n", r);
+    return 0;
 }
