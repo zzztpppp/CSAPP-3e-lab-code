@@ -13,12 +13,19 @@ int myecho(int argc, char **argv, char **envp){
     
     // Print command line arguments
     for(int i=0; i <argc; i++){
-        printf("argv[ %d]: %s", )
+        printf("argv[ %d]: %s \n", i, argv[i]);
+    }
+
+    // Print enviromental variables
+    for (int j=0;;j++){
+        if (envp[j] == NULL){
+            return 0;
+        }
+        printf("envp[ %d]: %s \n", j, envp[j]);
     }
 }
 
-int main(int argc, char *argv[]){
-    int in = atoi(argv[1]);
-    snooze(in);
+int main(int argc, char *argv[], char *envp[]){
+    myecho(argc, argv, envp);
     return 0;
 }

@@ -165,6 +165,20 @@ int main(int argc, char **argv)
 */
 void eval(char *cmdline) 
 {
+    char *argv[MAXARGS];  // Store parsed argument values from cmdline
+    int bg = parseline(cmdline, argv);
+
+    // Execute the command immediately if it is a builtin.
+    int is_builtin = builtin_cmd(argv);
+
+    // If current command is built-in. It should have been 
+    // exectuted and we end the current evalution to wait for the next
+    if (is_builtin) return;
+
+    // Execute user command
+    execve(argv[0], argv, environ);
+
+
     return;
 }
 
@@ -183,6 +197,7 @@ int parseline(const char *cmdline, char **argv)
     int argc;                   /* number of args */
     int bg;                     /* background job? */
 
+    
     strcpy(buf, cmdline);
     buf[strlen(buf)-1] = ' ';  /* replace trailing '\n' with space */
     while (*buf && (*buf == ' ')) /* ignore leading spaces */
@@ -231,6 +246,30 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
+    if (strcmp(argv[0], "quit") == 0){
+
+        // Quit the shell immediately
+        exit(0);
+    }
+    else if (strcmp(argv[0], "fg") == 0)
+    {
+        // Throw the given job of jid to fore round
+        do_bgfg(argv);
+        return 1;
+    }
+    else if (strcmp(argv[0], "bg") == 0)
+    {
+        // Throw the given job of jid to back ground
+        do_bgfg(argv);
+        return 1;
+    }
+    else if (strcmp(argv[0], "jobs"))
+    {
+        // List current running back ground jobs.
+        
+        return 1;
+    }
+    
     return 0;     /* not a builtin command */
 }
 
