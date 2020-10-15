@@ -166,7 +166,9 @@ int main(int argc, char **argv)
 void eval(char *cmdline) 
 {
     char *argv[MAXARGS];  // Store parsed argument values from cmdline
+    int pid;              // Pid of the job trigger by current command
     int bg = parseline(cmdline, argv);
+    sigset_t mask, prev;    
 
     // Execute the command immediately if it is a builtin.
     int is_builtin = builtin_cmd(argv);
@@ -174,11 +176,32 @@ void eval(char *cmdline)
     // If current command is built-in. It should have been 
     // exectuted and we end the current evalution to wait for the next
     if (is_builtin) return;
-
+    
     // Execute user command
-    execve(argv[0], argv, environ);
+    int state;
+    if (bg){ state = BG;}
+    else   { state = FG;}
+    
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGCHLD);
+    sigprocmask(SIG_BLOCK, &mask, &prev);  // Block SIGCHILD
+    if((pid = fork()) == 0){
+        setpgid(0, 0);    // Put child in a group different than the parent.
+        if (execve(argv[0], argv, environ) < 0){
+            printf("%s: Command not found.\n", argv[0]);
+            exit(0);
+        }
+    }
 
+    addjob(jobs, pid, state, cmdline);
+    sigprocmask(SIG_SETMASK, &prev, NULL);  // Unblock SIGCHILD
 
+    // The terminal stops taking any new commands if current
+    // command is a foreground job, until the current job finishes.
+    if (~bg){
+        waitfg(pid);
+    }
+    
     return;
 }
 
@@ -263,9 +286,10 @@ int builtin_cmd(char **argv)
         do_bgfg(argv);
         return 1;
     }
-    else if (strcmp(argv[0], "jobs"))
+    else if (strcmp(argv[0], "jobs") == 0)
     {
         // List current running back ground jobs.
+        listjobs(jobs);
         
         return 1;
     }
@@ -286,6 +310,10 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
+    while(fgpid(jobs) == pid){
+        sleep(1);
+    }
+
     return;
 }
 
@@ -302,6 +330,11 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
+    pid_t pid;
+    if((pid = waitpid(sig, NULL, 0)) == -1){
+        unix_error("Child error");
+    }
+
     return;
 }
 
@@ -322,6 +355,14 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
+    pid_t p = fgpid(jobs);
+    kill(p, sig);
+
+    // Set the job status to be stoped.
+    struct job_t *job = getjobpid(jobs, p);
+    job->state = ST;
+    printf("Job [%d] (%d) stopped by signal %d", job->jid, job->pid, sig);
+    
     return;
 }
 
