@@ -42,6 +42,8 @@ int verbose = 0;            /* if true, print additional output */
 int nextjid = 1;            /* next job ID to allocate */
 char sbuf[MAXLINE];         /* for composing sprintf messages */
 
+volatile pid_t pid_r;     // Most recently reaped child process id. 
+
 struct job_t {              /* The job struct */
     pid_t pid;              /* job PID */
     int jid;                /* job ID [1, 2, ...] */
@@ -168,7 +170,7 @@ void eval(char *cmdline)
     char *argv[MAXARGS];  // Store parsed argument values from cmdline
     int pid;              // Pid of the job trigger by current command
     int bg = parseline(cmdline, argv);
-    sigset_t mask, prev;    
+    sigset_t mask, mask_all, prev;    
 
     // Execute the command immediately if it is a builtin.
     int is_builtin = builtin_cmd(argv);
@@ -183,24 +185,26 @@ void eval(char *cmdline)
     else   { state = FG;}
     
     sigemptyset(&mask);
+    sigfillset(&mask_all);
     sigaddset(&mask, SIGCHLD);
     sigprocmask(SIG_BLOCK, &mask, &prev);  // Block SIGCHILD
     if((pid = fork()) == 0){
         setpgid(0, 0);    // Put child in a group different than the parent.
+        sigprocmask(SIG_SETMASK, &prev, NULL);
         if (execve(argv[0], argv, environ) < 0){
             printf("%s: Command not found.\n", argv[0]);
             exit(0);
         }
     }
-
+    
     addjob(jobs, pid, state, cmdline);
     sigprocmask(SIG_SETMASK, &prev, NULL);  // Unblock SIGCHILD
 
     // The terminal stops taking any new commands if current
     // command is a foreground job, until the current job finishes.
-    if (~bg){
-        waitfg(pid);
-    }
+    // if (~bg){
+        // waitfg(fgpid(jobs));
+    // }
     
     return;
 }
@@ -282,7 +286,7 @@ int builtin_cmd(char **argv)
     }
     else if (strcmp(argv[0], "bg") == 0)
     {
-        // Throw the given job of jid to back ground
+        // Throw the given stopped job of jid to back ground
         do_bgfg(argv);
         return 1;
     }
@@ -302,7 +306,10 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv) 
 {
-    return;
+    if (strcmp(argv[0], "fg") == 0){
+        pid_t pid = atoi(argv[1]);
+        
+    }
 }
 
 /* 
@@ -310,7 +317,8 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
-    while(fgpid(jobs) == pid){
+    pid_r = 0;
+    while(pid_r != pid){
         sleep(1);
     }
 
@@ -330,9 +338,8 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
-    pid_t pid;
-    if((pid = waitpid(sig, NULL, 0)) == -1){
-        unix_error("Child error");
+    if((waitpid(-1, NULL, WNOHANG)) < 0){
+        unix_error("Wait pid error");
     }
 
     return;
@@ -345,7 +352,16 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
+    pid_t pid = fgpid(jobs);
+    struct job_t *job = getjobpid(jobs, pid);
+    kill(pid, sig);
+
+    printf("Job [%d] (%d) stopped by signal %d", job->jid, job->pid, sig);
+
+    // Remove fore ground job from job list.
+    deletejob(jobs, pid);
     return;
+
 }
 
 /*
@@ -362,7 +378,6 @@ void sigtstp_handler(int sig)
     struct job_t *job = getjobpid(jobs, p);
     job->state = ST;
     printf("Job [%d] (%d) stopped by signal %d", job->jid, job->pid, sig);
-    
     return;
 }
 
