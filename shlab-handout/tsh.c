@@ -322,7 +322,7 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
-    while(getjobpid(jobs, pid) != NULL){
+    while((getjobpid(jobs, pid) != NULL) && (getjobpid(jobs, pid)->state == FG)){
         sleep(1);
     }
 
@@ -380,12 +380,13 @@ void sigint_handler(int sig)
 void sigtstp_handler(int sig) 
 {
     pid_t p = fgpid(jobs);
-    kill(p, sig);
+    if (p == 0) {return;}    // Ctrl+Z does nothing when their is no fore-ground job
+    kill(p, SIGSTOP);
 
     // Set the job status to be stoped.
     struct job_t *job = getjobpid(jobs, p);
     job->state = ST;
-    printf("Job [%d] (%d) stopped by signal %d", job->jid, job->pid, sig);
+    printf("Job [%d] (%d) stopped by signal %d\n", job->jid, job->pid, sig);
     return;
 }
 
