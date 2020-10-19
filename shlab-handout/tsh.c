@@ -360,14 +360,15 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
-    pid_t pid = fgpid(jobs);
-    struct job_t *job = getjobpid(jobs, pid);
-    kill(pid, sig);
+    pid_t p = fgpid(jobs);
+    if (p == 0) {return;}    // Ctrl+X does nothing when their is no fore-ground job
+    kill(p, SIGINT);
 
-    printf("Job [%d] (%d) stopped by signal %d", job->jid, job->pid, sig);
 
     // Remove fore ground job from job list.
-    deletejob(jobs, pid);
+    struct job_t *job = getjobpid(jobs, p);
+    printf("Job [%d] (%d) terminated by signal %d\n", job->jid, job->pid, sig);
+    deletejob(jobs, p);
     return;
 
 }
