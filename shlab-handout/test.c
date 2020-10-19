@@ -1,7 +1,11 @@
+#include <errno.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
+#include "csapp.h"
+
 
 unsigned int snooze(unsigned int secs){
     unsigned int rc = sleep(secs);
@@ -9,23 +13,20 @@ unsigned int snooze(unsigned int secs){
     return rc;
 }
 
-int myecho(int argc, char **argv, char **envp){
-    
-    // Print command line arguments
-    for(int i=0; i <argc; i++){
-        printf("argv[ %d]: %s \n", i, argv[i]);
-    }
 
-    // Print enviromental variables
-    for (int j=0;;j++){
-        if (envp[j] == NULL){
-            return 0;
-        }
-        printf("envp[ %d]: %s \n", j, envp[j]);
-    }
+void sigint_handler(int sig){
+    
+    return;
 }
 
-int main(int argc, char *argv[], char *envp[]){
-    myecho(argc, argv, envp);
+int main(int argc, char *argv[]){
+
+    // Install new signal handler
+    if (signal(SIGINT, sigint_handler) == SIG_ERR){
+        unix_error("signal_error");
+    }
+
+    snooze(atoi(argv[1]));
+
     return 0;
 }
