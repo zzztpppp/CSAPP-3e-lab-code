@@ -173,7 +173,7 @@ void eval(char *cmdline)
     sigset_t mask, mask_all, prev;    
 
     //Ignore blank line
-    if (bg == 1) {return;}
+    if ((bg == 1) && argv[0] == NULL) {return;}
 
     // Execute the command immediately if it is a builtin.
     int is_builtin = builtin_cmd(argv);
@@ -204,8 +204,12 @@ void eval(char *cmdline)
 
     // The terminal stops taking any new commands if current
     // command is a foreground job, until the current job finishes.
-    if (~bg){
+    if (state == FG){
         waitfg(pid);
+    }
+    else{
+        struct job_t *job = getjobpid(jobs, pid);
+        printf("Job [%d] (%d) %s", job->jid, job->pid, cmdline);
     }
     return;
 }
