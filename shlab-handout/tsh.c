@@ -172,6 +172,9 @@ void eval(char *cmdline)
     int bg = parseline(cmdline, argv);
     sigset_t mask, mask_all, prev;    
 
+    //Ignore blank line
+    if (bg == 1) {return;}
+
     // Execute the command immediately if it is a builtin.
     int is_builtin = builtin_cmd(argv);
 
@@ -183,7 +186,6 @@ void eval(char *cmdline)
     int state;
     if (bg){ state = BG;}
     else   { state = FG;}
-    
     sigemptyset(&mask);
     sigfillset(&mask_all);
     sigaddset(&mask, SIGCHLD);
@@ -202,10 +204,9 @@ void eval(char *cmdline)
 
     // The terminal stops taking any new commands if current
     // command is a foreground job, until the current job finishes.
-    // if (~bg){
-        // waitfg(fgpid(jobs));
-    // }
-    
+    if (~bg){
+        waitfg(pid);
+    }
     return;
 }
 
@@ -317,8 +318,7 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
-    pid_r = 0;
-    while(pid_r != pid){
+    while(getjobpid(jobs, pid) != NULL){
         sleep(1);
     }
 
@@ -338,10 +338,14 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
-    if((waitpid(-1, NULL, WNOHANG)) < 0){
-        unix_error("Wait pid error");
-    }
+    pid_t pid;
+    while ((pid = waitpid(-1, NULL, WNOHANG)) > 0){
 
+        // Reaps finished jobs.
+        if (getjobpid(jobs, pid)->state != ST){
+            deletejob(jobs, pid);
+        }
+    }
     return;
 }
 
