@@ -311,9 +311,29 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv) 
 {
+    struct job_t *job;
+
+    if (argv[1] == NULL){
+        printf("%s requires PID or %%jobid argument\n");
+    }
+
+    int pid_or_jid = atoi(argv[1]);
+    if ((job = getjobpid(jobs, pid_or_jid)) != NULL){}
+    else if((job = getjobjid(jobs, pid_or_jid)) != NULL){}
+    else{
+        printf("(%d): No such process!\n", pid_or_jid);
+        return;
+    }
+
+    pid_t actual_pid = job->pid;
     if (strcmp(argv[0], "fg") == 0){
-        pid_t pid = atoi(argv[1]);
-        
+        // The bg sends a SIGCONT to a stopped process and wait the process to finish.
+        job->state = FG;
+        kill(actual_pid, SIGCONT);
+        waitfg(actual_pid);
+    }
+    else{
+    
     }
 }
 
