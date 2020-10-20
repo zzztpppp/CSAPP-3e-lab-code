@@ -346,7 +346,8 @@ void sigchld_handler(int sig)
     while ((pid = waitpid(-1, NULL, WNOHANG)) > 0){
 
         // Reaps finished jobs.
-        if (getjobpid(jobs, pid)->state != ST){
+        struct job_t *job = getjobpid(jobs, pid);
+        if (job->state != ST){
             deletejob(jobs, pid);
         }
     }
@@ -361,14 +362,19 @@ void sigchld_handler(int sig)
 void sigint_handler(int sig) 
 {
     pid_t p = fgpid(jobs);
-    if (p == 0) {return;}    // Ctrl+X does nothing when their is no fore-ground job
+    struct job_t *j = getjobpid(jobs, p);
+    int jid = j->jid;
+    if (p == 0) {return;}    // Ctrl+C does nothing when their is no fore-ground job
     kill(p, SIGINT);
 
 
     // Remove fore ground job from job list.
-    struct job_t *job = getjobpid(jobs, p);
-    printf("Job [%d] (%d) terminated by signal %d\n", job->jid, job->pid, sig);
-    deletejob(jobs, p);
+    while(getjobpid(jobs, p) != NULL){
+        sleep(1);
+    }
+    printf("Job [%d] (%d) terminated by signal %d\n", jid, p, sig);
+    // deletejob(jobs, p);
+    // printf("Deleted\n");
     return;
 
 }
