@@ -408,7 +408,7 @@ void sigint_handler(int sig)
     struct job_t *j = getjobpid(jobs, p);
     int jid = j->jid;
     if (p == 0) {return;}    // Ctrl+C does nothing when their is no fore-ground job
-    kill(p, SIGINT);
+    kill(-p, SIGINT);
 
 
     // Remove fore ground job from job list.
@@ -431,7 +431,7 @@ void sigtstp_handler(int sig)
 {
     pid_t p = fgpid(jobs);
     if (p == 0) {return;}    // Ctrl+Z does nothing when their is no fore-ground job
-    kill(p, SIGTSTP);
+    kill(-p, SIGTSTP);
 
     // Set the job status to be stoped.
     struct job_t *job = getjobpid(jobs, p);
