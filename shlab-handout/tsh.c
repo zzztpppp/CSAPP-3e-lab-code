@@ -354,6 +354,7 @@ void do_bgfg(char **argv)
     else{
         // The bg sends a SIGCONT to a stopped process, run it in the background 
         job->state = BG;
+        printf("[%d] (%d) %s", job->jid, job->pid, job->cmdline);
         kill(actual_pid, SIGCONT);
     }
     return;
