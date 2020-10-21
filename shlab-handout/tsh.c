@@ -386,13 +386,14 @@ void waitfg(pid_t pid)
 void sigchld_handler(int sig) 
 {
     pid_t pid;
-    while ((pid = waitpid(-1, NULL, WNOHANG)) > 0){
-
-        // Reaps finished jobs.
+    int status;
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0){
         struct job_t *job = getjobpid(jobs, pid);
-        if (job->state != ST){
-            deletejob(jobs, pid);
+        if(WIFSIGNALED(status)){
+            printf("Job [%d] (%d) terminated by signal %d\n", job->jid, job->pid, WTERMSIG(status));
         }
+        // Reaps finished jobs.
+        deletejob(jobs, pid);
     }
     return;
 }
@@ -405,19 +406,13 @@ void sigchld_handler(int sig)
 void sigint_handler(int sig) 
 {
     pid_t p = fgpid(jobs);
-    struct job_t *j = getjobpid(jobs, p);
-    int jid = j->jid;
     if (p == 0) {return;}    // Ctrl+C does nothing when their is no fore-ground job
     kill(-p, SIGINT);
-
 
     // Remove fore ground job from job list.
     while(getjobpid(jobs, p) != NULL){
         sleep(1);
     }
-    printf("Job [%d] (%d) terminated by signal %d\n", jid, p, sig);
-    // deletejob(jobs, p);
-    // printf("Deleted\n");
     return;
 
 }
