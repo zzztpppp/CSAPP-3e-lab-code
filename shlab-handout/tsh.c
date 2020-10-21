@@ -314,7 +314,7 @@ void do_bgfg(char **argv)
     struct job_t *job;
 
     if (argv[1] == NULL){
-        printf("%s requires PID or %%jobid argument\n");
+        printf("%s requires PID or %%jobid argument\n", argv[0]);
     }
 
     int pid_or_jid = atoi(argv[1]);
@@ -327,14 +327,21 @@ void do_bgfg(char **argv)
 
     pid_t actual_pid = job->pid;
     if (strcmp(argv[0], "fg") == 0){
-        // The bg sends a SIGCONT to a stopped process and wait the process to finish.
+        // The fg sends a SIGTSTP to a running process, bring it to the fore-ground, send it a
+        // SIGCONT and wait the process to finish.
+        if (job->state != ST){
+            kill(actual_pid, SIGTSTP);
+        }
         job->state = FG;
         kill(actual_pid, SIGCONT);
         waitfg(actual_pid);
     }
     else{
-    
+        // The bg sends a SIGCONT to a stopped process, run it in the background 
+        job->state = BG;
+        kill(actual_pid, SIGCONT);
     }
+    return;
 }
 
 /* 
@@ -408,7 +415,7 @@ void sigtstp_handler(int sig)
 {
     pid_t p = fgpid(jobs);
     if (p == 0) {return;}    // Ctrl+Z does nothing when their is no fore-ground job
-    kill(p, SIGSTOP);
+    kill(p, SIGTSTP);
 
     // Set the job status to be stoped.
     struct job_t *job = getjobpid(jobs, p);
