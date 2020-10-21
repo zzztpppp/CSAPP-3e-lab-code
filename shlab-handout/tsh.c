@@ -209,7 +209,7 @@ void eval(char *cmdline)
     }
     else{
         struct job_t *job = getjobpid(jobs, pid);
-        printf("Job [%d] (%d) %s", job->jid, job->pid, cmdline);
+        printf("[%d] (%d) %s", job->jid, job->pid, cmdline);
     }
     return;
 }
@@ -312,19 +312,25 @@ int builtin_cmd(char **argv)
 void do_bgfg(char **argv) 
 {
     struct job_t *job;
+    int pid_or_jid = atoi(argv[1]);
 
     if (argv[1] == NULL){
         printf("%s requires PID or %%jobid argument\n", argv[0]);
     }
-
-    int pid_or_jid = atoi(argv[1]);
-    if ((job = getjobpid(jobs, pid_or_jid)) != NULL){}
-    else if((job = getjobjid(jobs, pid_or_jid)) != NULL){}
-    else{
-        printf("(%d): No such process!\n", pid_or_jid);
-        return;
+    if (argv[1][0] == '%'){
+        // Jid
+        pid_or_jid = atoi(argv[1] + 1);
+        job = getjobjid(jobs, pid_or_jid);
+    }
+    else {
+        pid_or_jid = atoi(argv[1]);
+        job = getjobpid(jobs, pid_or_jid);
     }
 
+    if (job == NULL){
+        printf("(%d): No such process!\n", pid_or_jid);
+    }
+    
     pid_t actual_pid = job->pid;
     if (strcmp(argv[0], "fg") == 0){
         // The fg sends a SIGTSTP to a running process, bring it to the fore-ground, send it a
