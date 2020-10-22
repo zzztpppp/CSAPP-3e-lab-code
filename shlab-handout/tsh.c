@@ -336,7 +336,7 @@ void do_bgfg(char **argv)
 
     // PID or %jid doesn't exist
     if (job == NULL){
-        printf("(%d): No such process!\n", pid_or_jid);
+        printf("(%d): No such job!\n", pid_or_jid);
         return;
     }
     
