@@ -387,13 +387,21 @@ void sigchld_handler(int sig)
 {
     pid_t pid;
     int status;
-    while ((pid = waitpid(-1, &status, WNOHANG)) > 0){
+    while ((pid = waitpid(-1, &status, WNOHANG | WUNTRACED)) > 0){
         struct job_t *job = getjobpid(jobs, pid);
         if(WIFSIGNALED(status)){
             printf("Job [%d] (%d) terminated by signal %d\n", job->jid, job->pid, WTERMSIG(status));
+            // Reaps finished jobs.
+            deletejob(jobs, pid);
         }
-        // Reaps finished jobs.
-        deletejob(jobs, pid);
+
+        else if (WIFSTOPPED(status)){
+            printf("Job [%d] (%d) stopped by signal %d\n", job->jid, job->pid, WSTOPSIG(status));
+
+            // Change job status in job queue
+            job->state = ST;
+        }
+        else{ deletejob(jobs, pid); }
     }
     return;
 }
@@ -428,10 +436,6 @@ void sigtstp_handler(int sig)
     if (p == 0) {return;}    // Ctrl+Z does nothing when their is no fore-ground job
     kill(-p, SIGTSTP);
 
-    // Set the job status to be stoped.
-    struct job_t *job = getjobpid(jobs, p);
-    job->state = ST;
-    printf("Job [%d] (%d) stopped by signal %d\n", job->jid, job->pid, sig);
     return;
 }
 
