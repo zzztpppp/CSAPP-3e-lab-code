@@ -70,6 +70,11 @@ team_t team = {
 #define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
+
+/* Given block ptr bp, compute address of pred and succ free blocks */
+#define PRED_BLKP(bp) (*(char *)(bp)) 
+#define SUCC_BLKP(bp) (*(char *)(bp + WSIZE))
+
 static const int num_free_list = 25;
 
 void *free_lists_array[num_free_list];
