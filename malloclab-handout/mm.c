@@ -173,7 +173,6 @@ static void *coalesce(void *bp)
  *   according to the block size.
  */
 static void put_block(void *bp){
-    void *free_listp;
     size_t size  = GET_SIZE(HDRP(bp)) / DSIZE;
     int size_class;
     
@@ -186,6 +185,15 @@ static void put_block(void *bp){
     }
 
     // Insert the block into free list of the size class
+    insert_free_list(bp, free_lists_array[size]);
+
+}
+
+/*
+ * insert_free_list - Insert the free block into
+ *     free_listp. 
+ */
+static void insert_free_list(void *bp, void *free_listp){
 
 }
 
@@ -195,14 +203,22 @@ static void put_block(void *bp){
  */
 void *mm_malloc(size_t size)
 {
-    int newsize = ALIGN(size + SIZE_T_SIZE);
-    void *p = mem_sbrk(newsize);
-    if (p == (void *)-1)
+    char *bp;
+
+    // Ignore suprious request
+    if (size == 0)
         return NULL;
-    else {
-        *(size_t *)p = size;
-        return (void *)((char *)p + SIZE_T_SIZE);
+
+    int newsize = ALIGN(size + SIZE_T_SIZE);
+
+    // Search the free list for a hit.
+    if ((bp = find_fit(newsize)) == NULL){
+        place(bp, newsize);
+        return bp;
     }
+
+    // No fit found. Get more memory and place the block.
+
 }
 
 /*
@@ -231,6 +247,11 @@ void *mm_realloc(void *ptr, size_t size)
     mm_free(oldptr);
     return newptr;
 }
+
+
+/* 
+ * Helper function for accessing the free_list data structure
+ */
 
 
 
