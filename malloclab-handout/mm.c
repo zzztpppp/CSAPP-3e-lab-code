@@ -177,12 +177,6 @@ static void put_block(void *bp){
     int size_class;
     
     // Find the proper size class
-    for(int i=0; i < num_free_list; i++){
-         if (size <= (1 << i)){
-             size_class = i;
-             break;
-         }
-    }
 
     // Insert the block into free list of the size class
     insert_free_list(bp, free_lists_array[size]);
@@ -204,6 +198,7 @@ static void insert_free_list(void *bp, void *free_listp){
 void *mm_malloc(size_t size)
 {
     char *bp;
+    size_t extendsize;
 
     // Ignore suprious request
     if (size == 0)
@@ -218,8 +213,48 @@ void *mm_malloc(size_t size)
     }
 
     // No fit found. Get more memory and place the block.
-
+    extendsize = MAX(newsize, CHUNKSIZE);
+    if ((bp = extend_heap(extendsize/WSIZE)) == NULL)
+        return NULL;
+    
+    place(bp, newsize);
+    return bp;
 }
+
+/*
+ * find_fit - Find the free list that has size of at least
+ *     asize. Search the free list, return the first fit block.
+ */
+static void *find_fit(size_t asize){
+
+    char *bp = heap_listp;
+    while ((!GET_ALLOC(bp) && (GET_SIZE(bp) < asize))){
+        bp = NEXT_BLKP(bp);
+    }
+
+    return bp;
+}
+
+/*
+ * get_sizeclass - Return the index of free_lists_array where 
+ *      the indexed free_list (if not empty) has blocks of size 
+ *      at least size.
+ */ 
+static int get_sizeclass(size_t size){
+
+    int size_class;
+    for(int i=0; i < num_free_list; i++){
+         if (size <= (1 << i)){
+             size_class = i;
+             break;
+         }
+    }
+
+    return size_class;
+}
+
+
+
 
 /*
  * mm_free - Freeing a block does nothing.
