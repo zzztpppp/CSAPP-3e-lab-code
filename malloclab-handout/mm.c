@@ -148,8 +148,11 @@ static void *extend_heap(size_t words)
  */
 static void *coalesce(void *bp)
 {
-    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
-    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
+    void *prev_bp = PREV_BLKP(bp);
+    void *next_bp = NEXT_BLKP(bp);
+
+    size_t prev_alloc = GET_ALLOC(FTRP(prev_bp));
+    size_t next_alloc = GET_ALLOC(HDRP(next_bp));
     size_t size = GET_SIZE(HDRP(bp));
 
     if (prev_alloc && next_alloc) { /* Case 1 */
@@ -160,6 +163,11 @@ static void *coalesce(void *bp)
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size,0));
+
+        // Toggle predecessor and successor
+        // empty block pointer
+        SUCC_BLKP(bp) = SUCC(next_bp);
+        PRED_BLKP(NEXT_BLKP(next_bp)) = bp;
     }
 
     else if (!prev_alloc && next_alloc) { /* Case 3 */
@@ -167,6 +175,9 @@ static void *coalesce(void *bp)
         PUT(FTRP(bp), PACK(size, 0));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
+
+        SUCC_BLKP(prev_bp) = SUCC_BLKP(bp);
+        PRED_BLKP(next_bp) = prev_bp;
     }
 
     else { /* Case 4 */
@@ -175,6 +186,9 @@ static void *coalesce(void *bp)
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
+
+        SUCC_BLKP(prev_bp) = SUCC_BLKP(next_bp);
+        PRED_BLKP(NEXT_BLKP(next_bp)) = prev_bp;
     }
         return bp;
 }
