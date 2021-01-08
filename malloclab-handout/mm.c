@@ -202,7 +202,8 @@ static void put_block(void *bp){
     int size_class;
     
     // Find the heap list of  proper size class 
-    heap_listp = get_heap_listp(size);
+    size_class = get_size_class(size);
+    heap_listp = free_lists_array[size_class];
 
     // Insert the block into free list of the size class
     insert_free_list(bp, heap_listp);
@@ -231,17 +232,25 @@ void *mm_malloc(size_t size)
 {
     char *bp;
     size_t extendsize;
+    int size_class;
 
     // Ignore suprious request
     if (size == 0)
         return NULL;
 
     int newsize = ALIGN(size + SIZE_T_SIZE);
+    size_class = get_size_class(newsize);
 
     // Search the free list for a hit.
-    if ((bp = find_fit(newsize)) == NULL){
-        place(bp, newsize);
-        return bp;
+    while(size_class < num_free_list){
+        heap_listp = free_lists_array[size_class];
+        if ((bp = find_fit(newsize, heap_listp)) == NULL){
+            place(bp, newsize);
+            return bp;
+        }
+
+        // No hit in current size class. Go for one bigger.
+        size_class += 1;
     }
 
     // No fit found. Get more memory and place the block.
@@ -268,11 +277,11 @@ static void *find_fit(size_t asize, void *heap_listp){
 }
 
 /*
- * get_sizeclass - Return the index of free_lists_array where 
+ * get_size_class - Return the index of free_lists_array where 
  *      the indexed free_list (if not empty) has blocks of size 
  *      at least size.
  */ 
-static int get_heap_listp(size_t size){
+static int get_size_class(size_t size){
 
     int size_class;
     size = size/WSIZE;
@@ -282,8 +291,8 @@ static int get_heap_listp(size_t size){
              break;
          }
     }
-
-    return free_lists_array[size_class];
+    
+    return size_class;
 }
 
 
@@ -324,17 +333,4 @@ void *mm_realloc(void *ptr, size_t size)
 /* 
  * Helper function for accessing the free_list data structure
  */
-
-
-
-
-
-
-
-
-
-
-
-
-
 
