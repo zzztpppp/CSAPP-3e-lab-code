@@ -59,6 +59,11 @@ team_t team = {
 #define GET(p) (*(unsigned int *)(p))
 #define PUT(p, val) (*(unsigned int *)(p) = (val))
 
+/* Read and write two words at address p */
+#define GET_P(p) (*(unsigned long *)(p))
+#define PUt_P(p, val)(*( unsigned long *)(p) = (val))
+
+
 /* Read the size and allocated fields from address p */
 #define GET_SIZE(p) (GET(p) & ~0x7)
 #define GET_ALLOC(p) (GET(p) & 0x1)
@@ -73,7 +78,7 @@ team_t team = {
 
 /* Given block ptr bp, compute address of pred and succ free blocks */
 #define PRED_BLKP(bp) (*(long *)(bp)) 
-#define SUCC_BLKP(bp) (*(long *)(bp + DSIZE))
+#define SUCC_BLKP(bp) (*(long *)((char *)(bp) + DSIZE))
 
 /* Given block ptr bp, cut off its relationship with successor or 
  * predecessor
@@ -211,16 +216,35 @@ static void put_block(void *bp){
 
 /*
  * insert_free_list - Insert the free block into
- *     free_listp. 
+ *     free_listp. Blocks are put as address-ordered.
  */
 static void insert_free_list(void *bp, void *free_listp){
-    void *succ_blkp = free_listp;
-    while (succ_blkp != NULL){
-        succ_blkp = SUCC_BLKP((char *)(succ_blkp));
+
+    // Target free list is empty, populate it with the bp.
+    if (free_listp == NULL)
+       return;
+
+    void *current_bp = free_listp;
+    void *succ_bp = SUCC_BLKP(current_bp);
+    while (current_bp != NULL){
+        if (bp > current_bp){
+            current_bp = succ_bp;
+            succ_bp = SUCC_BLKP(current_bp);
+        }
+        else if(bp < current_bp){
+            SUCC_BLKP(current_bp) = bp;
+            PRED_BLKP(bp) = current_bp;
+            SUCC_BLKP(bp) = succ_bp;
+            if (succ_bp != NULL)
+                PRED_BLKP(succ_bp) = bp;
+            return;
+        }
+        else{
+            fprintf(stderr, "ERROR: Heap currupted. Duplicated blocks %p, %p found", (void *)bp, (void *)current_bp);
+        }
     }
 
-    // Append the the end of the free list. 
-    succ_blkp = bp; 
+    fprintf(stderr, "ERROR: Can't insert block %p, into %p", (void *)bp, (void *)heap_listp);
 }
 
 /* 
@@ -265,6 +289,28 @@ static void *find_fit(size_t asize, void *heap_listp){
     }
 
     return bp;
+}
+
+
+/*
+ * place - Take up a given size of chunks of a block bp. 
+ *     Put the fragment(if any) into the corresponding free list.
+ */ 
+void place(bp, size){
+
+    if (GET_SIZE(bp) == size){
+        return; // No fragmentation
+    }
+
+    else{
+        // There is a fragmentation, need to make the residual space a block
+        size_t residual_size = GET_SIZE(bp) - size;
+        void *next_blkp = NEXT_BLKP(bp);
+
+        PUT(HDRP(bp), PACK(size, 1));
+        PUT(bp + size, PACK(size, 1)); // Footer of the allocated block
+        PUT(bp + size + WSIZE, PACK(residual_size, 0)); // Head of the residual block
+    }
 }
 
 /*
@@ -324,17 +370,3 @@ void *mm_realloc(void *ptr, size_t size)
 /* 
  * Helper function for accessing the free_list data structure
  */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
