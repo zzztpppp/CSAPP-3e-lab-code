@@ -61,7 +61,7 @@ team_t team = {
 
 /* Read and write two words at address p */
 #define GET_P(p) (*(unsigned long *)(p))
-#define PUt_P(p, val)(*( unsigned long *)(p) = (val))
+#define PUT_P(p, val)(*( unsigned long *)(p) = (val))
 
 
 /* Read the size and allocated fields from address p */
@@ -77,21 +77,18 @@ team_t team = {
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
 /* Given block ptr bp, compute address of pred and succ free blocks */
-#define PRED_BLKP(bp) (*(long *)(bp)) 
-#define SUCC_BLKP(bp) (*(long *)((char *)(bp) + DSIZE))
-
-/* Given block ptr bp, cut off its relationship with successor or 
- * predecessor
- */
-
-/* Put 2 words at address p.*/
-#define PUT_BLKPTR(p, val) (*(long *)(p) = (val))
+#define PRED_BLKP(bp) (*(unsigned long *)(bp)) 
+#define SUCC_BLKP(bp) (*(unsigned long *)((char *)(bp) + DSIZE))
 
 
-static const int num_free_list = 22;
+/* Local helper functions */
+static void *extend_heap(size_t words);
+static void *coalesce(void *bp);
+static void place(bp, size);
+static void *find_fit(size_t asize, void *heap_listp);
 
-// Each free list contains  2^i < size  <= 2^(i+1) of free blocks
-static void *free_lists_array[num_free_list];
+// Linked list that contains free lists of different size class.
+static void **free_lists;
 
 static void *heap_listp;
 
@@ -102,10 +99,8 @@ int mm_init(void)
 {
     void *bp;
 
-    // Initialize the empty free list array
-    for (int i=0; i < num_free_list; i++){
-        free_lists_array[i] = NULL;
-    }
+    // Initialize the empty free lists
+    free_lists = NULL;
 
     // Create the initial empty heap
     if ((heap_listp = mem_sbrk(6*WSIZE)) == (void *)-1)
@@ -121,9 +116,6 @@ int mm_init(void)
     if ((bp = extend_heap(CHUNKSIZE/WSIZE)) == NULL)
         return -1;
     
-    // Put the first block into right size class
-    put_block(bp);
-
     return 0;
 }
 
@@ -143,6 +135,10 @@ static void *extend_heap(size_t words)
     PUT(HDRP(bp), PACK(size, 0)); /* Free block header */
     PUT(FTRP(bp), PACK(size, 0)); /* Free block footer */
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1)); /* New epilogue header */
+
+    /* Initialize free block sucessor and predeccessor */
+    PUT_P(bp, NULL);
+    PUT_P(bp + DSIZE, NULL);
 
     /* Coalesce if the previous block was free */
     return coalesce(bp);
@@ -171,8 +167,8 @@ static void *coalesce(void *bp)
 
         // Toggle predecessor and successor
         // empty block pointer
-        SUCC_BLKP(bp) = SUCC(next_bp);
-        PRED_BLKP(NEXT_BLKP(next_bp)) = bp;
+        PUT_P(bp + DSIZE, SUCC_BLKP(next_bp));
+        PUT_P(NEXT_BLKP(next_bp), bp);
     }
 
     else if (!prev_alloc && next_alloc) { /* Case 3 */
@@ -181,8 +177,8 @@ static void *coalesce(void *bp)
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
 
-        SUCC_BLKP(prev_bp) = SUCC_BLKP(bp);
-        PRED_BLKP(next_bp) = prev_bp;
+        PUT_P(prev_bp + DSIZE, SUCC_BLKP(bp));
+        PUT(next_bp, prev_bp);
     }
 
     else { /* Case 4 */
@@ -192,28 +188,12 @@ static void *coalesce(void *bp)
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
 
-        SUCC_BLKP(prev_bp) = SUCC_BLKP(next_bp);
-        PRED_BLKP(NEXT_BLKP(next_bp)) = prev_bp;
+        PUT_P(prev_bp + DSIZE, SUCC_BLKP(next_bp));
+        PUT_P(NEXT_BLKP(next_bp), prev_bp);
     }
         return bp;
 }
 
-
-/* put_block - Put the free block bp at the right place of free_list_array
- *   according to the block size.
- */
-static void put_block(void *bp){
-    size_t size  = GET_SIZE(HDRP(bp)) / DSIZE;
-    int size_class;
-    
-    // Find the heap list of  proper size class 
-    size_class = get_size_class(size);
-    heap_listp = free_lists_array[size_class];
-
-    // Insert the block into free list of the size class
-    insert_free_list(bp, heap_listp);
-
-}
 
 /*
  * insert_free_list - Insert the free block into
@@ -256,25 +236,17 @@ void *mm_malloc(size_t size)
 {
     char *bp;
     size_t extendsize;
-    int size_class;
 
     // Ignore suprious request
     if (size == 0)
         return NULL;
 
     int newsize = ALIGN(size + SIZE_T_SIZE);
-    size_class = get_size_class(newsize);
 
     // Search the free list for a hit.
-    while(size_class < num_free_list){
-        heap_listp = free_lists_array[size_class];
-        if ((bp = find_fit(newsize, heap_listp)) == NULL){
-            place(bp, newsize);
-            return bp;
-        }
-
-        // No hit in current size class. Go for one bigger.
-        size_class += 1;
+    if ((bp = find_fit(newsize, heap_listp)) == NULL){
+        place(bp, newsize);
+        return bp;
     }
 
     // No fit found. Get more memory and place the block.
@@ -294,51 +266,38 @@ static void *find_fit(size_t asize, void *heap_listp){
 
     char *bp = heap_listp;
     while ((!GET_ALLOC(bp) && (GET_SIZE(bp) < asize))){
-        bp = NEXT_BLKP(bp);
+        bp = SUCC_BLKP(bp);
     }
 
     return bp;
 }
-
 
 /*
  * place - Take up a given size of chunks of a block bp. 
  *     Put the fragment(if any) into the corresponding free list.
  */ 
 void place(bp, size){
+    size_t block_size = GET_SIZE(bp);
+    size_t csize = block_size - size;
 
-    if (GET_SIZE(bp) == size){
-        return; // No fragmentation
-    }
-
-    else{
+    if (csize > 2*DSIZE){
         // There is a fragmentation, need to make the residual space a block
-        size_t residual_size = GET_SIZE(bp) - size;
-        void *next_blkp = NEXT_BLKP(bp);
+        PUT(HDRP(bp), PACK(size, 1)); // Header of the allocated block
+        PUT(FTRP(bp), PACK(size, 1)); // Footer of the allocated block
 
-        PUT(HDRP(bp), PACK(size, 1));
-        PUT(bp + size, PACK(size, 1)); // Footer of the allocated block
-        PUT(bp + size + WSIZE, PACK(residual_size, 0)); // Head of the residual block
+        bp = NEXT_BLKP(bp);
+        PUT(HDRP(bp), PACK(csize, 0));
+        PUT(FTRP(bp), PACK(csize, 0));
+
+        // New block inherit sucessor and predeccessor from old block
+        PUT_P(bp, PRED_BLKP(PREV_BLKP(bp)));
+        PUT_P(bp + DSIZE, SUCC_BLKP(PREV_BLKP(bp)));
     }
-}
-
-/*
- * get_size_class - Return the index of free_lists_array where 
- *      the indexed free_list (if not empty) has blocks of size 
- *      at least size.
- */ 
-static int get_size_class(size_t size){
-
-    int size_class;
-    size = size/WSIZE;
-    for(int i=0; i < num_free_list; i++){
-         if (size <= (1 << i)){
-             size_class = i;
-             break;
-         }
+    else{
+        // No fragmentation
+        PUT(HDRP(bp), PACK(block_size, 1));
+        PUT(FTRP(bp), PACK(block_size, 1));
     }
-    
-    return size_class;
 }
 
 
@@ -352,7 +311,6 @@ void mm_free(void *bp)
     PUT(HDRP(bp), PACK(size, 0));
     PUT(FTRP(bp), PACK(size, 0));
     bp = coalesce(bp);
-    put_block(bp);
 }
 
 /*
