@@ -61,7 +61,7 @@ team_t team = {
 
 /* Read and write two words at address p */
 #define GET_P(p) (*(unsigned long *)(p))
-#define PUT_P(p, val)(*( unsigned long *)(p) = (val))
+#define PUT_P(p, val)(*( unsigned long *)(p) = ((unsigned long)(val)))
 
 
 /* Read the size and allocated fields from address p */
@@ -77,20 +77,20 @@ team_t team = {
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
 /* Given block ptr bp, compute address of pred and succ free blocks */
-#define PRED_BLKP(bp) (*(unsigned long *)(bp)) 
-#define SUCC_BLKP(bp) (*(unsigned long *)((char *)(bp) + DSIZE))
+#define PRED_BLKP(bp) ((char *)(*(unsigned long *)(bp)))
+#define SUCC_BLKP(bp) ((char *)(*(unsigned long *)((char *)(bp) + DSIZE)))
 
 
 /* Local helper functions */
 static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
-static void place(bp, size);
+static void place(void *bp, size_t size);
 static void *find_fit(size_t asize, void *heap_listp);
 
 // Linked list that contains free lists of different size class.
 static void **free_lists;
 
-static void *heap_listp;
+static char *heap_listp;
 
 /* 
  * mm_init - initialize the malloc package.
@@ -178,7 +178,7 @@ static void *coalesce(void *bp)
         bp = PREV_BLKP(bp);
 
         PUT_P(prev_bp + DSIZE, SUCC_BLKP(bp));
-        PUT(next_bp, prev_bp);
+        PUT_P(next_bp, prev_bp);
     }
 
     else { /* Case 4 */
@@ -194,39 +194,6 @@ static void *coalesce(void *bp)
         return bp;
 }
 
-
-/*
- * insert_free_list - Insert the free block into
- *     free_listp. Blocks are put as address-ordered.
- */
-static void insert_free_list(void *bp, void *free_listp){
-
-    // Target free list is empty, populate it with the bp.
-    if (free_listp == NULL)
-       return;
-
-    void *current_bp = free_listp;
-    void *succ_bp = SUCC_BLKP(current_bp);
-    while (current_bp != NULL){
-        if (bp > current_bp){
-            current_bp = succ_bp;
-            succ_bp = SUCC_BLKP(current_bp);
-        }
-        else if(bp < current_bp){
-            SUCC_BLKP(current_bp) = bp;
-            PRED_BLKP(bp) = current_bp;
-            SUCC_BLKP(bp) = succ_bp;
-            if (succ_bp != NULL)
-                PRED_BLKP(succ_bp) = bp;
-            return;
-        }
-        else{
-            fprintf(stderr, "ERROR: Heap currupted. Duplicated blocks %p, %p found", (void *)bp, (void *)current_bp);
-        }
-    }
-
-    fprintf(stderr, "ERROR: Can't insert block %p, into %p", (void *)bp, (void *)heap_listp);
-}
 
 /* 
  * mm_malloc - Allocate a block by incrementing the brk pointer.
@@ -276,7 +243,7 @@ static void *find_fit(size_t asize, void *heap_listp){
  * place - Take up a given size of chunks of a block bp. 
  *     Put the fragment(if any) into the corresponding free list.
  */ 
-void place(bp, size){
+void place(void *bp, size_t size){
     size_t block_size = GET_SIZE(bp);
     size_t csize = block_size - size;
 
