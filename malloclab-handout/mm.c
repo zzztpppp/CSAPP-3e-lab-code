@@ -76,9 +76,13 @@ team_t team = {
 #define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
-/* Given block ptr bp, compute address of pred and succ free blocks */
+/* Given block ptr bp, compute value of pred and succ free blocks */
 #define PRED_BLKP(bp) ((char *)(*(unsigned long *)(bp)))
 #define SUCC_BLKP(bp) ((char *)(*(unsigned long *)((char *)(bp) + DSIZE)))
+
+/* Given block ptr bp, compute address of pred and succ */
+#define PREDP(bp) ((char *)(bp))
+#define SUCCP(bp) ((char *)(bp) + DSIZE)
 
 
 /* Local helper functions */
@@ -86,6 +90,7 @@ static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 static void place(void *bp, size_t size);
 static void *find_fit(size_t asize, void *heap_listp);
+static void put_end(void *bp);
 
 // Linked list that contains free lists of different size class.
 static void **free_lists;
@@ -137,8 +142,11 @@ static void *extend_heap(size_t words)
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1)); /* New epilogue header */
 
     /* Initialize free block sucessor and predeccessor */
-    PUT_P(bp, NULL);
-    PUT_P(bp + DSIZE, NULL);
+    PUT_P(PREDP(bp), NULL);
+    PUT_P(SUCCP(bp), NULL);
+
+    /* Put the newly accquired chunk at the end  of the free list.*/
+    put_end(bp);
 
     /* Coalesce if the previous block was free */
     return coalesce(bp);
@@ -161,35 +169,39 @@ static void *coalesce(void *bp)
     }
 
     else if (prev_alloc && !next_alloc) { /* Case 2 */
-        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
-        PUT(HDRP(bp), PACK(size, 0));
-        PUT(FTRP(bp), PACK(size,0));
 
         // Toggle predecessor and successor
         // empty block pointer
-        PUT_P(bp + DSIZE, SUCC_BLKP(next_bp));
-        PUT_P(NEXT_BLKP(next_bp), bp);
+        PUT_P(SUCCP(bp), SUCC_BLKP(next_bp)); /* Successor of new bp */
+        PUT_P(PREDP(SUCC_BLKP(next_bp)), bp); /* Predecessor of the successor */
+
+        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        PUT(HDRP(bp), PACK(size, 0));
+        PUT(FTRP(bp), PACK(size,0));
     }
 
     else if (!prev_alloc && next_alloc) { /* Case 3 */
+
+        PUT_P(SUCCP(prev_bp), SUCC_BLKP(bp));
+        PUT_P(PREDP(SUCC_BLKP(bp)), prev_bp);
+
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
         PUT(FTRP(bp), PACK(size, 0));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
-        bp = PREV_BLKP(bp);
-
-        PUT_P(prev_bp + DSIZE, SUCC_BLKP(bp));
-        PUT_P(next_bp, prev_bp);
+        bp = prev_bp;
     }
 
     else { /* Case 4 */
+
+        PUT_P(SUCCP(prev_bp), SUCC_BLKP(next_bp));
+        PUT_P(PREDP(SUCC_BLKP(next_bp)), prev_bp);
+
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) +
         GET_SIZE(FTRP(NEXT_BLKP(bp)));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
 
-        PUT_P(prev_bp + DSIZE, SUCC_BLKP(next_bp));
-        PUT_P(NEXT_BLKP(next_bp), prev_bp);
     }
         return bp;
 }
@@ -257,8 +269,8 @@ void place(void *bp, size_t size){
         PUT(FTRP(bp), PACK(csize, 0));
 
         // New block inherit sucessor and predeccessor from old block
-        PUT_P(bp, PRED_BLKP(PREV_BLKP(bp)));
-        PUT_P(bp + DSIZE, SUCC_BLKP(PREV_BLKP(bp)));
+        PUT_P(PREDP(bp), PRED_BLKP(PREV_BLKP(bp)));
+        PUT_P(SUCCP(bp), SUCC_BLKP(PREV_BLKP(bp)));
     }
     else{
         // No fragmentation
@@ -299,6 +311,29 @@ void *mm_realloc(void *ptr, size_t size)
     mm_free(oldptr);
     return newptr;
 }
+
+/**********************************
+ * Helper functions
+ **********************************/
+
+/*
+ * put_end - Put the free block bp at the 
+ * end of the free list.
+ */ 
+static void put_end(void *bp)
+{
+    char *current_bp = heap_listp;
+    char *succ_bp;
+    while ((succ_bp = SUCC_BLKP(bp)) != NULL){
+        current_bp = succ_bp;
+    }
+    
+    PUT_P(SUCCP(current_bp), bp);
+    PUT_P(PREDP(bp), current_bp);
+    return;
+}
+
+
 
 
 /* 
