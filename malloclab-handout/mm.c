@@ -84,16 +84,19 @@ team_t team = {
 #define PREDP(bp) ((char *)(bp))
 #define SUCCP(bp) ((char *)(bp) + DSIZE)
 
+/* Compare whether the address a is higher than the address b */
+# define ADDR_GTR(a, b) ((unsigned long)(a) > (unsigned long)(b))
+
 
 /* Local helper functions */
 static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 static void place(void *bp, size_t size);
 static void *find_fit(size_t asize, void *heap_listp);
-static void put_end(void *bp);
+static void put_free(void *bp);
 
-// Linked list that contains free lists of different size class.
-static void **free_lists;
+// Pointer pointing to the first free block
+static void *free_listp;
 
 static char *heap_listp;
 
@@ -103,9 +106,6 @@ static char *heap_listp;
 int mm_init(void)
 {
     void *bp;
-
-    // Initialize the empty free lists
-    free_lists = NULL;
 
     // Create the initial empty heap
     if ((heap_listp = mem_sbrk(6*WSIZE)) == (void *)-1)
@@ -120,6 +120,9 @@ int mm_init(void)
     
     if ((bp = extend_heap(CHUNKSIZE/WSIZE)) == NULL)
         return -1;
+    
+    /* Initialize free_listp to contain the block that we just carved out */
+    free_listp = bp;
     
     return 0;
 }
@@ -146,7 +149,7 @@ static void *extend_heap(size_t words)
     PUT_P(SUCCP(bp), NULL);
 
     /* Put the newly accquired chunk at the end  of the free list.*/
-    put_end(bp);
+    put_free(bp);
 
     /* Coalesce if the previous block was free */
     return coalesce(bp);
@@ -289,6 +292,7 @@ void mm_free(void *bp)
 
     PUT(HDRP(bp), PACK(size, 0));
     PUT(FTRP(bp), PACK(size, 0));
+    put_free(bp);
     bp = coalesce(bp);
 }
 
@@ -317,19 +321,31 @@ void *mm_realloc(void *ptr, size_t size)
  **********************************/
 
 /*
- * put_end - Put the free block bp at the 
- * end of the free list.
+ * put_free - Put a untracked free block bp at the 
+ * right place of the free list upon address order.
  */ 
-static void put_end(void *bp)
+static void put_free(void *bp)
 {
-    char *current_bp = heap_listp;
-    char *succ_bp;
-    while ((succ_bp = SUCC_BLKP(bp)) != NULL){
-        current_bp = succ_bp;
+    char *current_bp = free_listp;
+    if (current_bp == NULL){
+        /* The free list is empty */
+        free_listp = current_bp;
+        return;
     }
-    
-    PUT_P(SUCCP(current_bp), bp);
+     
+    /* Free list is not empty find the predecessor of bp */   
+    while (!ADDR_GTR(bp, current_bp)){
+        current_bp = SUCC_BLKP(current_bp);
+    }
+
+    /* Insert bp between current_bp and its successor */
+    void *succ_bp = SUCC_BLKP(current_bp);
     PUT_P(PREDP(bp), current_bp);
+    PUT_P(SUCCP(bp), succ_bp);
+
+    PUT_P(SUCCP(current_bp), bp);
+    if (succ_bp !=  NULL) PUT_P(PREDP(succ_bp), bp);
+    
     return;
 }
 
