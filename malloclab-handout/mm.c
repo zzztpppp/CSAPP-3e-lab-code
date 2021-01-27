@@ -350,6 +350,28 @@ static void put_free(void *bp)
 }
 
 
+/*
+ * remove_free - Remove a block free block from the free_list 
+ *     for use.
+ */
+static void remove_free(void *bp){
+    void *pred_bp = PRED_BLKP(bp);
+    void *succ_bp = SUCC_BLKP(bp);
+
+    if (pred_bp != NULL)
+        PUT_P(SUCCP(pred_bp), succ_bp);
+
+    if (succ_bp != NULL) 
+        PUT_P(PREDP(succ_bp), pred_bp);
+   
+    /* We are removing the fisrt block */ 
+    if (pred_bp == NULL)
+        free_listp = succ_bp;
+    
+    return;
+}
+
+
 
 
 /* 
