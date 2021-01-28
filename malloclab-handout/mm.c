@@ -346,7 +346,7 @@ static void put_free(void *bp)
         node_bp = SUCC_BLKP(node_bp);
     }
 
-    /* Insert bp between node_bp and succ_bp, if any.
+    /* Insert bp between node_bp and succ_bp, if any.*/
     void *succ_bp = SUCC_BLKP(node_bp);
     if (succ_bp != NULL){
         PUT_P(PREDP(succ_bp), bp);
