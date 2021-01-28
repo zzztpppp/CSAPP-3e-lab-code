@@ -326,26 +326,35 @@ void *mm_realloc(void *ptr, size_t size)
  */ 
 static void put_free(void *bp)
 {
-    char *current_bp = free_listp;
-    if (current_bp == NULL){
+    char *node_bp;
+    if (free_listp == NULL){
         /* The free list is empty */
-        free_listp = current_bp;
+        free_listp = bp;
+        return;
+    }
+
+    /* Check if the block to insert has the lowest address order */
+    if (ADDR_GTR(free_listp, bp)){
+        PUT_P(SUCCP(bp), free_listp);
+        PUT_P(PREDP(free_listp), bp);
+        free_listp = bp;
         return;
     }
      
-    /* Free list is not empty find the predecessor of bp */   
-    while (!ADDR_GTR(bp, current_bp)){
-        current_bp = SUCC_BLKP(current_bp);
+    /* Find the predecessor of bp */   
+    while (!ADDR_GTR(bp, node_bp)){
+        node_bp = SUCC_BLKP(node_bp);
     }
 
-    /* Insert bp between current_bp and its successor */
-    void *succ_bp = SUCC_BLKP(current_bp);
-    PUT_P(PREDP(bp), current_bp);
+    /* Insert bp between node_bp and succ_bp, if any.
+    void *succ_bp = SUCC_BLKP(node_bp);
+    if (succ_bp != NULL){
+        PUT_P(PREDP(succ_bp), bp);
+    }
+    PUT_P(SUCCP(node_bp), bp);
+    PUT_P(PREDP(bp), node_bp);
     PUT_P(SUCCP(bp), succ_bp);
 
-    PUT_P(SUCCP(current_bp), bp);
-    if (succ_bp !=  NULL) PUT_P(PREDP(succ_bp), bp);
-    
     return;
 }
 
