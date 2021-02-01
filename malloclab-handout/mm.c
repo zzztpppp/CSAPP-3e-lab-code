@@ -330,7 +330,6 @@ void *mm_realloc(void *ptr, size_t size)
  */ 
 static void put_free(void *bp)
 {
-    char *node_bp;
     if (free_listp == NULL){
         /* The free list is empty */
         free_listp = bp;
@@ -345,6 +344,7 @@ static void put_free(void *bp)
         return;
     }
      
+    char *node_bp = free_listp;
     /* Find the predecessor of bp */   
     while (!ADDR_GTR(bp, node_bp)){
         node_bp = SUCC_BLKP(node_bp);
