@@ -94,6 +94,7 @@ static void *coalesce(void *bp);
 static void place(void *bp, size_t size);
 static void *find_fit(size_t asize, void *heap_listp);
 static void put_free(void *bp);
+static void remove_free(void *bp);
 
 // Pointer pointing to the first free block
 static void *free_listp;
@@ -246,7 +247,7 @@ void *mm_malloc(size_t size)
  */
 static void *find_fit(size_t asize, void *heap_listp){
 
-    char *bp = heap_listp;
+    char *bp = free_listp;
     while ((!GET_ALLOC(bp) && (GET_SIZE(bp) < asize))){
         bp = SUCC_BLKP(bp);
     }
@@ -262,6 +263,9 @@ void place(void *bp, size_t size){
     size_t block_size = GET_SIZE(bp);
     size_t csize = block_size - size;
 
+    /* Remove the block from free list */
+    remove_free(bp);
+
     if (csize > 2*DSIZE){
         // There is a fragmentation, need to make the residual space a block
         PUT(HDRP(bp), PACK(size, 1)); // Header of the allocated block
@@ -271,9 +275,9 @@ void place(void *bp, size_t size){
         PUT(HDRP(bp), PACK(csize, 0));
         PUT(FTRP(bp), PACK(csize, 0));
 
-        // New block inherit sucessor and predeccessor from old block
-        PUT_P(PREDP(bp), PRED_BLKP(PREV_BLKP(bp)));
-        PUT_P(SUCCP(bp), SUCC_BLKP(PREV_BLKP(bp)));
+        /* Put the residual block into free list */
+        put_free(bp);
+
     }
     else{
         // No fragmentation
