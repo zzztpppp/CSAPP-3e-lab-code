@@ -455,13 +455,13 @@ static void mm_checkheap(void){
                 fprintf(stderr, "Block %p in free list but is allocated.\n", bp);
             bp = SUCC_BLKP(bp);
         }
+    }
 
-        /* Check that blocks in heap list marked as free are in free list */
-        for (bp = heap_listp; (GET_SIZE(bp) > 0) && (!GET_ALLOC(bp)); bp = NEXT_BLKP(bp)){
-            if (!isin_free(bp)){
-                fprintf(stderr, "Block %p markded as free but not found in free list.\n",
-                        bp);
-            }
+    /* Check that blocks in heap list marked as free are in free list */
+    for (bp = heap_listp; (GET_SIZE(bp) > 0) && (!GET_ALLOC(bp)); bp = NEXT_BLKP(bp)){
+        if (!isin_free(bp)){
+            fprintf(stderr, "Block %p markded as free but not found in free list.\n",
+                    bp);
         }
     }
 }
