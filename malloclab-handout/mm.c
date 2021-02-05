@@ -68,8 +68,8 @@ team_t team = {
 #define PUT(p, val) (*(unsigned int *)(p) = (val))
 
 /* Read and write two words at address p */
-#define GET_P(p) (*(unsigned long *)(p))
-#define PUT_P(p, val)(*( unsigned long *)(p) = ((unsigned long)(val)))
+#define GET_P(p) (*(size_t *)(p))
+#define PUT_P(p, val)(*(size_t *)(p) = ((size_t)(val)))
 
 
 /* Read the size and allocated fields from address p */
@@ -85,15 +85,15 @@ team_t team = {
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
 /* Given block ptr bp, compute value of pred and succ free blocks */
-#define PRED_BLKP(bp) ((char *)(*(unsigned long *)(bp)))
-#define SUCC_BLKP(bp) ((char *)(*(unsigned long *)((char *)(bp) + DSIZE)))
+#define PRED_BLKP(bp) ((char *)(*(size_t *)(bp)))
+#define SUCC_BLKP(bp) ((char *)(*(size_t *)((char *)(bp) + WSIZE)))
 
 /* Given block ptr bp, compute address of pred and succ */
 #define PREDP(bp) ((char *)(bp))
 #define SUCCP(bp) ((char *)(bp) + DSIZE)
 
 /* Compare whether the address a is higher than the address b */
-# define ADDR_GTR(a, b) ((unsigned long)(a) > (unsigned long)(b))
+# define ADDR_GTR(a, b) ((char *)(a) > (char *)(b))
 
 
 /* Local helper functions */
@@ -280,7 +280,7 @@ void place(void *bp, size_t size){
     /* Remove the block from free list */
     remove_free(bp);
 
-    if (csize > 2*DSIZE){
+    if (csize >= 2*DSIZE){
         // There is a fragmentation, need to make the residual space a block
         PUT(HDRP(bp), PACK(size, 1)); // Header of the allocated block
         PUT(FTRP(bp), PACK(size, 1)); // Footer of the allocated block
@@ -438,7 +438,7 @@ static void mm_checkheap(void){
         /* Check free list to be address ordered */
         bp = free_listp;
         while ((bp = SUCC_BLKP(free_listp)) != NULL){
-           if (( PRED_BLKP(bp)) >= bp)
+           if (ADDR_GTR(PRED_BLKP(bp), bp))
                fprintf(stderr, "Free block %p should not predecede free block  %p",
                        PRED_BLKP(bp), bp);
         }
