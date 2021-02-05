@@ -104,6 +104,11 @@ static void *find_fit(size_t asize, void *heap_listp);
 static void put_free(void *bp);
 static void remove_free(void *bp);
 static void mm_checkheap(void);
+static void printblock(void *bp);
+static void checkblock(void *bp);
+static void checkheap(int verbose);
+
+
 
 // Pointer pointing to the first free block
 static void *free_listp;
@@ -127,7 +132,6 @@ int mm_init(void)
     PUT(heap_listp + (3*WSIZE), PACK(DSIZE, 1)); // Epilogue header
     
     heap_listp = heap_listp + (2*WSIZE);
-    printf("Here!");
     if ((bp = extend_heap(CHUNKSIZE/WSIZE)) == NULL)
         return -1;
     
@@ -433,6 +437,7 @@ static int isin_free(void *bp){
  */
 static void mm_checkheap(void){
     char *bp;
+    checkheap(0);
     if (free_listp != NULL){
         
         /* Check free list to be address ordered */
@@ -448,6 +453,7 @@ static void mm_checkheap(void){
         while (bp != NULL){
             if (GET_ALLOC(bp))
                 fprintf(stderr, "Block %p in free list but is allocated.\n", bp);
+            bp = SUCC_BLKP(bp);
         }
 
         /* Check that blocks in heap list marked as free are in free list */
@@ -459,5 +465,58 @@ static void mm_checkheap(void){
         }
     }
 }
+
+static void printblock(void *bp) 
+{
+    size_t hsize, halloc, fsize, falloc;
+
+    checkheap(0);
+    hsize = GET_SIZE(HDRP(bp));
+    halloc = GET_ALLOC(HDRP(bp));  
+    fsize = GET_SIZE(FTRP(bp));
+    falloc = GET_ALLOC(FTRP(bp));  
+
+    if (hsize == 0) {
+        printf("%p: EOL\n", bp);
+        return;
+    }
+
+    printf("%p: header: [%ld:%c] footer: [%ld:%c]\n", bp, 
+           hsize, (halloc ? 'a' : 'f'), 
+           fsize, (falloc ? 'a' : 'f')); 
+}
  
 
+static void checkblock(void *bp) 
+{
+    if ((size_t)bp % 8)
+        printf("Error: %p is not doubleword aligned\n", bp);
+    if (GET(HDRP(bp)) != GET(FTRP(bp)))
+        printf("Error: header does not match footer\n");
+}
+
+/* 
+ * checkheap - Minimal check of the heap for consistency 
+ */
+void checkheap(int verbose) 
+{
+    char *bp = heap_listp;
+
+    if (verbose)
+        printf("Heap (%p):\n", heap_listp);
+
+    if ((GET_SIZE(HDRP(heap_listp)) != DSIZE) || !GET_ALLOC(HDRP(heap_listp)))
+        printf("Bad prologue header\n");
+    checkblock(heap_listp);
+
+    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
+        if (verbose) 
+            printblock(bp);
+        checkblock(bp);
+    }
+
+    if (verbose)
+        printblock(bp);
+    if ((GET_SIZE(HDRP(bp)) != 0) || !(GET_ALLOC(HDRP(bp))))
+        printf("Bad epilogue header\n");
+}
