@@ -36,6 +36,14 @@ team_t team = {
     ""
 };
 
+/* Enter debug mode, where mm_checkheap is invoked after ever operation */
+#define DEBUG
+#ifdef DEBUG
+    #define mm_checkheap_d mm_checkheap()
+#else
+    #define mm_checkheap_d ((void)0)
+#endif
+
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
 
@@ -95,6 +103,7 @@ static void place(void *bp, size_t size);
 static void *find_fit(size_t asize, void *heap_listp);
 static void put_free(void *bp);
 static void remove_free(void *bp);
+static void mm_checkheap(void);
 
 // Pointer pointing to the first free block
 static void *free_listp;
@@ -124,6 +133,8 @@ int mm_init(void)
     
     /* Initialize free_listp to contain the block that we just carved out */
     free_listp = bp;
+
+    mm_checkheap_d;
     
     return 0;
 }
@@ -207,7 +218,10 @@ static void *coalesce(void *bp)
         bp = PREV_BLKP(bp);
 
     }
-        return bp;
+
+    mm_checkheap_d;
+
+    return bp;
 }
 
 
@@ -284,6 +298,8 @@ void place(void *bp, size_t size){
         PUT(HDRP(bp), PACK(block_size, 1));
         PUT(FTRP(bp), PACK(block_size, 1));
     }
+    
+    mm_checkheap_d;
 }
 
 
@@ -389,6 +405,10 @@ static void remove_free(void *bp){
  * Heap consistency checker
  **************************************************************/
 
+/*
+ * isin_free - Given plock pointer bp
+ *     return 1 if bp is in free block, 0 otherwise.
+ */
 static int isin_free(void *bp){
     if (free_listp == NULL)
         return 0;
@@ -412,13 +432,13 @@ static int isin_free(void *bp){
  *     free list are marked as free in heap list.
  */
 static void mm_checkheap(void){
-    size_t bp;
+    char *bp;
     if (free_listp != NULL){
         
         /* Check free list to be address ordered */
         bp = free_listp;
         while ((bp = SUCC_BLKP(free_listp)) != NULL){
-           if (((size_t) PRED_BLKP(bp)) >= bp)
+           if (( PRED_BLKP(bp)) >= bp)
                fprintf(stderr, "Free block %p should not predecede free block  %p",
                        PRED_BLKP(bp), bp);
         }
@@ -431,7 +451,7 @@ static void mm_checkheap(void){
         }
 
         /* Check that blocks in heap list marked as free are in free list */
-        for (void *bp = heap_listp; (GET_SIZE(bp) > 0) && (!GET_ALLOC(bp)); bp = NEXT_BLKP(bp)){
+        for (bp = heap_listp; (GET_SIZE(bp) > 0) && (!GET_ALLOC(bp)); bp = NEXT_BLKP(bp)){
             if (!isin_free(bp)){
                 fprintf(stderr, "Block %p markded as free but not found in free list.\n",
                         bp);
