@@ -118,7 +118,7 @@ int mm_init(void)
     PUT(heap_listp + (3*WSIZE), PACK(DSIZE, 1)); // Epilogue header
     
     heap_listp = heap_listp + (2*WSIZE);
-    
+    printf("Here!");
     if ((bp = extend_heap(CHUNKSIZE/WSIZE)) == NULL)
         return -1;
     
@@ -385,8 +385,59 @@ static void remove_free(void *bp){
 }
 
 
+/************************************************************* 
+ * Heap consistency checker
+ **************************************************************/
+
+static int isin_free(void *bp){
+    if (free_listp == NULL)
+        return 0;
+    
+    void *current_bp = free_listp;
+    while (current_bp != NULL){
+        if (current_bp == bp) return 1;
+        current_bp = SUCC_BLKP(current_bp);
+    }
+
+    return 0;
+}
 
 
-/* 
- * Helper function for accessing the free_list data structure
+/*
+ * mm_checkheap - Checks heap consistency:
+ *     whether blocks are continues, whether there is no adjacent
+ *     free blocks, whether all free blocks in the free list
+ *     are adress ordered, whether all blocks in the heap_list
+ *     marked as free are in free_list, whether all blocks in the
+ *     free list are marked as free in heap list.
  */
+static void mm_checkheap(void){
+    size_t bp;
+    if (free_listp != NULL){
+        
+        /* Check free list to be address ordered */
+        bp = free_listp;
+        while ((bp = SUCC_BLKP(free_listp)) != NULL){
+           if (((size_t) PRED_BLKP(bp)) >= bp)
+               fprintf(stderr, "Free block %p should not predecede free block  %p",
+                       PRED_BLKP(bp), bp);
+        }
+
+        /* Check that blocks presenting at free list are marked as free in heap list */
+        bp = free_listp;
+        while (bp != NULL){
+            if (GET_ALLOC(bp))
+                fprintf(stderr, "Block %p in free list but is allocated.\n", bp);
+        }
+
+        /* Check that blocks in heap list marked as free are in free list */
+        for (void *bp = heap_listp; (GET_SIZE(bp) > 0) && (!GET_ALLOC(bp)); bp = NEXT_BLKP(bp)){
+            if (!isin_free(bp)){
+                fprintf(stderr, "Block %p markded as free but not found in free list.\n",
+                        bp);
+            }
+        }
+    }
+}
+ 
+
