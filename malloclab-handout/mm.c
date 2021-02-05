@@ -129,7 +129,7 @@ int mm_init(void)
     PUT(heap_listp, 0); // Alignment padding
     PUT(heap_listp + (1*WSIZE), PACK(DSIZE, 1)); // Prologue header
     PUT(heap_listp + (2*WSIZE), PACK(DSIZE, 1)); // Prologue footer
-    PUT(heap_listp + (3*WSIZE), PACK(DSIZE, 1)); // Epilogue header
+    PUT(heap_listp + (3*WSIZE), PACK(0, 1)); // Epilogue header
     
     heap_listp = heap_listp + (2*WSIZE);
     if ((bp = extend_heap(CHUNKSIZE/WSIZE)) == NULL)
