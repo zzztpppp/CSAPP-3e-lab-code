@@ -160,10 +160,6 @@ static void *extend_heap(size_t words)
     PUT(FTRP(bp), PACK(size, 0)); /* Free block footer */
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1)); /* New epilogue header */
 
-    /* Initialize free block sucessor and predeccessor */
-    PUT_P(PREDP(bp), NULL);
-    PUT_P(SUCCP(bp), NULL);
-
     /* Put the newly accquired chunk at the end  of the free list.*/
     put_free(bp);
 
@@ -350,6 +346,10 @@ void *mm_realloc(void *ptr, size_t size)
  */ 
 static void put_free(void *bp)
 {
+    /* Clean up the payload for succp and predp */
+    PUT_P(SUCCP(bp), NULL);
+    PUT_P(PREDP(bp), NULL);
+
     if (free_listp == NULL){
         /* The free list is empty */
         free_listp = bp;
