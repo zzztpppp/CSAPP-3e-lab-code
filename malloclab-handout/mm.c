@@ -37,7 +37,7 @@ team_t team = {
 };
 
 /* Enter debug mode, where mm_checkheap is invoked after ever operation */
-#define DEBUG
+// #define DEBUG
 #ifdef DEBUG
     #define mm_checkheap_d mm_checkheap()
 #else
@@ -107,6 +107,7 @@ static void mm_checkheap(void);
 static void printblock(void *bp);
 static void checkblock(void *bp);
 static void checkheap(int verbose);
+static void coalesce_free(bp);
 
 
 
@@ -179,16 +180,14 @@ static void *coalesce(void *bp)
     size_t next_alloc = GET_ALLOC(HDRP(next_bp));
     size_t size = GET_SIZE(HDRP(bp));
 
+    /* Coalesce adjacent blocks of bp in free list first */
+    coalesce_free(bp);
+
     if (prev_alloc && next_alloc) { /* Case 1 */
         return bp;
     }
 
     else if (prev_alloc && !next_alloc) { /* Case 2 */
-
-        // Toggle predecessor and successor
-        // empty block pointer
-        PUT_P(SUCCP(bp), SUCC_BLKP(next_bp)); /* Successor of new bp */
-        PUT_P(PREDP(SUCC_BLKP(next_bp)), bp); /* Predecessor of the successor */
 
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         PUT(HDRP(bp), PACK(size, 0));
@@ -197,9 +196,6 @@ static void *coalesce(void *bp)
 
     else if (!prev_alloc && next_alloc) { /* Case 3 */
 
-        PUT_P(SUCCP(prev_bp), SUCC_BLKP(bp));
-        PUT_P(PREDP(SUCC_BLKP(bp)), prev_bp);
-
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
         PUT(FTRP(bp), PACK(size, 0));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
@@ -207,9 +203,6 @@ static void *coalesce(void *bp)
     }
 
     else { /* Case 4 */
-
-        PUT_P(SUCCP(prev_bp), SUCC_BLKP(next_bp));
-        PUT_P(PREDP(SUCC_BLKP(next_bp)), prev_bp);
 
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) +
         GET_SIZE(FTRP(NEXT_BLKP(bp)));
@@ -222,6 +215,31 @@ static void *coalesce(void *bp)
     mm_checkheap_d;
 
     return bp;
+}
+
+
+/*
+ * coalesce_free - Coalesce adjacent blocks in free list.
+ */
+static void coalesce_free(bp){
+    /* Blocks that are adjacent to bp in free list */
+    char *succ_bp = SUCC_BLKP(bp);
+    char *pred_bp = PRED_BLKP(bp);
+
+    /* Blocks that are adjacent to bp in heap list */
+    char *next_bp = NEXT_BLKP(bp);
+    char *prev_bp = PREV_BLKP(bp);
+
+    /* If both conditions are hit, then its case 4. If none is hit, its case 1 */
+    if (succ_bp == next_bp){
+        remove_free(succ_bp);  /* Case 2 */ 
+    }
+
+    if (prev_bp == pred_bp){
+        remove_free(bp);      /* Case 3 */
+    }
+
+    return;
 }
 
 
@@ -365,13 +383,14 @@ static void put_free(void *bp)
     }
      
     char *node_bp = free_listp;
+    void *succ_bp = SUCC_BLKP(node_bp);
     /* Find the predecessor of bp */   
-    while (!ADDR_GTR(bp, node_bp)){
+    while (!ADDR_GTR(bp, node_bp) && (succ_bp != NULL)){
         node_bp = SUCC_BLKP(node_bp);
+        succ_bp = SUCC_BLKP(node_bp);
     }
 
     /* Insert bp between node_bp and succ_bp, if any.*/
-    void *succ_bp = SUCC_BLKP(node_bp);
     if (succ_bp != NULL){
         PUT_P(PREDP(succ_bp), bp);
     }
