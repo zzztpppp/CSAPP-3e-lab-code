@@ -262,7 +262,7 @@ void *mm_malloc(size_t size)
 static void *find_fit(size_t asize, void *heap_listp){
 
     char *bp = free_listp;
-    while ((GET_ALLOC(HDRP(bp)) || (GET_SIZE(HDRP(bp)) < asize))){
+    while ((bp != NULL) && (GET_ALLOC(HDRP(bp)) || (GET_SIZE(HDRP(bp)) < asize))){
         bp = SUCC_BLKP(bp);
     }
 
