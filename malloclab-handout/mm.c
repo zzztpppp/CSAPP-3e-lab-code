@@ -266,7 +266,7 @@ void *mm_malloc(size_t size)
 static void *find_fit(size_t asize, void *heap_listp){
 
     char *bp = free_listp;
-    while ((!GET_ALLOC(bp) && (GET_SIZE(bp) < asize))){
+    while ((!GET_ALLOC(HDRP(bp)) && (GET_SIZE(HDRP(bp)) < asize))){
         bp = SUCC_BLKP(bp);
     }
 
@@ -278,7 +278,7 @@ static void *find_fit(size_t asize, void *heap_listp){
  *     Put the fragment(if any) into the corresponding free list.
  */ 
 void place(void *bp, size_t size){
-    size_t block_size = GET_SIZE(bp);
+    size_t block_size = GET_SIZE(HDRP(bp));
     size_t csize = block_size - size;
 
     /* Remove the block from free list */
@@ -451,14 +451,14 @@ static void mm_checkheap(void){
         /* Check that blocks presenting at free list are marked as free in heap list */
         bp = free_listp;
         while (bp != NULL){
-            if (GET_ALLOC(bp))
+            if (GET_ALLOC(HDRP(bp)))
                 fprintf(stderr, "Block %p in free list but is allocated.\n", bp);
             bp = SUCC_BLKP(bp);
         }
     }
 
     /* Check that blocks in heap list marked as free are in free list */
-    for (bp = heap_listp; (GET_SIZE(bp) > 0) && (!GET_ALLOC(bp)); bp = NEXT_BLKP(bp)){
+    for (bp = heap_listp; (GET_SIZE(HDRP(bp)) > 0) && (!GET_ALLOC(HDRP(bp))); bp = NEXT_BLKP(bp)){
         if (!isin_free(bp)){
             fprintf(stderr, "Block %p markded as free but not found in free list.\n",
                     bp);
