@@ -90,7 +90,7 @@ team_t team = {
 
 /* Given block ptr bp, compute address of pred and succ */
 #define PREDP(bp) ((char *)(bp))
-#define SUCCP(bp) ((char *)(bp) + DSIZE)
+#define SUCCP(bp) ((char *)(bp) + WSIZE)
 
 /* Compare whether the address a is higher than the address b */
 # define ADDR_GTR(a, b) ((char *)(a) > (char *)(b))
@@ -123,7 +123,7 @@ int mm_init(void)
     void *bp;
 
     // Create the initial empty heap
-    if ((heap_listp = mem_sbrk(6*WSIZE)) == (void *)-1)
+    if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
         return -1;
     
     PUT(heap_listp, 0); // Alignment padding
