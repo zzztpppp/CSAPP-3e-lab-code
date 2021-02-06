@@ -245,7 +245,7 @@ void *mm_malloc(size_t size)
     int newsize = ALIGN(size + SIZE_T_SIZE);
 
     // Search the free list for a hit.
-    if ((bp = find_fit(newsize, heap_listp)) == NULL){
+    if ((bp = find_fit(newsize, heap_listp)) != NULL){
         place(bp, newsize);
         return bp;
     }
