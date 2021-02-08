@@ -463,7 +463,7 @@ static void mm_checkheap(void){
         bp = free_listp;
         while ((bp = SUCC_BLKP(free_listp)) != NULL){
            if (ADDR_GTR(PRED_BLKP(bp), bp))
-               fprintf(stderr, "Free block %p should not predecede free block  %p",
+               printf( "Free block %p should not predecede free block  %p",
                        PRED_BLKP(bp), bp);
         }
 
@@ -471,7 +471,7 @@ static void mm_checkheap(void){
         bp = free_listp;
         while (bp != NULL){
             if (GET_ALLOC(HDRP(bp)))
-                fprintf(stderr, "Block %p in free list but is allocated.\n", bp);
+                printf("Block %p in free list but is allocated.\n", bp);
             bp = SUCC_BLKP(bp);
         }
     }
@@ -479,7 +479,7 @@ static void mm_checkheap(void){
     /* Check that blocks in heap list marked as free are in free list */
     for (bp = heap_listp; (GET_SIZE(HDRP(bp)) > 0) && (!GET_ALLOC(HDRP(bp))); bp = NEXT_BLKP(bp)){
         if (!isin_free(bp)){
-            fprintf(stderr, "Block %p markded as free but not found in free list.\n",
+            printf("Block %p markded as free but not found in free list.\n",
                     bp);
         }
     }
