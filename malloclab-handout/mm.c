@@ -37,9 +37,9 @@ team_t team = {
 };
 
 /* Enter debug mode, where mm_checkheap is invoked after ever operation */
-// #define DEBUG
+#define DEBUG
 #ifdef DEBUG
-    #define mm_checkheap_d mm_checkheap()
+    #define mm_checkheap_d printf("Check heap at %d, %s\n", __LINE__, __FILE__);mm_checkheap();
 #else
     #define mm_checkheap_d ((void)0)
 #endif
@@ -133,6 +133,8 @@ int mm_init(void)
     PUT(heap_listp + (3*WSIZE), PACK(0, 1)); // Epilogue header
     
     heap_listp = heap_listp + (2*WSIZE);
+
+    free_listp = NULL;
     if ((bp = extend_heap(CHUNKSIZE/WSIZE)) == NULL)
         return -1;
     
@@ -384,9 +386,12 @@ static void put_free(void *bp)
      
     char *node_bp = free_listp;
     void *succ_bp = SUCC_BLKP(node_bp);
+
     /* Find the predecessor of bp */   
-    while (!ADDR_GTR(bp, node_bp) && (succ_bp != NULL)){
-        node_bp = SUCC_BLKP(node_bp);
+    while (ADDR_GTR(bp, node_bp)){
+        if ((succ_bp == NULL) || ADDR_GTR(succ_bp, bp)) 
+            break;
+        node_bp = succ_bp;
         succ_bp = SUCC_BLKP(node_bp);
     }
 
@@ -456,28 +461,31 @@ static int isin_free(void *bp){
  */
 static void mm_checkheap(void){
     char *bp;
+    char *next_bp;
     checkheap(0);
     if (free_listp != NULL){
         
         /* Check free list to be address ordered */
-        bp = free_listp;
-        while ((bp = SUCC_BLKP(free_listp)) != NULL){
+        printf("Check that free blocks are address-ordered.\n");
+        for (bp = free_listp; (next_bp = SUCC_BLKP(bp)) != NULL; bp=next_bp){
+            // printblock(bp);
            if (ADDR_GTR(PRED_BLKP(bp), bp))
                printf( "Free block %p should not predecede free block  %p",
                        PRED_BLKP(bp), bp);
         }
 
         /* Check that blocks presenting at free list are marked as free in heap list */
-        bp = free_listp;
-        while (bp != NULL){
+        printf("Check free block false negatives\n");
+        for (bp = free_listp; bp != NULL; bp = SUCC_BLKP(bp)){
+            // printblock(bp);
             if (GET_ALLOC(HDRP(bp)))
                 printf("Block %p in free list but is allocated.\n", bp);
-            bp = SUCC_BLKP(bp);
         }
     }
 
     /* Check that blocks in heap list marked as free are in free list */
-    for (bp = heap_listp; (GET_SIZE(HDRP(bp)) > 0) && (!GET_ALLOC(HDRP(bp))); bp = NEXT_BLKP(bp)){
+    for (bp = heap_listp; (!GET_ALLOC(HDRP(bp))) && (GET_SIZE(HDRP(bp)) > 0); bp = NEXT_BLKP(bp)){
+        printf("Checking free blocks false positive.\n");
         if (!isin_free(bp)){
             printf("Block %p markded as free but not found in free list.\n",
                     bp);
