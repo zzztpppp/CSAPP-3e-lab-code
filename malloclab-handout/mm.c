@@ -37,7 +37,7 @@ team_t team = {
 };
 
 /* Enter debug mode, where mm_checkheap is invoked after ever operation */
-#define DEBUG
+// #define DEBUG
 #ifdef DEBUG
     #define mm_checkheap_d printf("Check heap at %d, %s\n", __LINE__, __FILE__);mm_checkheap();
 #else
@@ -107,7 +107,8 @@ static void mm_checkheap(void);
 static void printblock(void *bp);
 static void checkblock(void *bp);
 static void checkheap(int verbose);
-static void coalesce_free(bp);
+static void coalesce_free(void *bp);
+static int is_block(void *bp);
 
 
 
@@ -223,7 +224,7 @@ static void *coalesce(void *bp)
 /*
  * coalesce_free - Coalesce adjacent blocks in free list.
  */
-static void coalesce_free(bp){
+static void coalesce_free(void *bp){
     /* Blocks that are adjacent to bp in free list */
     char *succ_bp = SUCC_BLKP(bp);
     char *pred_bp = PRED_BLKP(bp);
@@ -337,14 +338,35 @@ void mm_free(void *bp)
 }
 
 /*
- * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
+ * mm_realloc - Realloc memeory of size to the given ptr.
+ *     It firt tries to extend the ptr by accquiring more
+ *     space from the adjacent empty blocks. If failed, 
+ *     fall back to mm_malloc(size)
  */
 void *mm_realloc(void *ptr, size_t size)
 {
     void *oldptr = ptr;
     void *newptr;
     size_t copySize;
-    
+
+    if (size == 0){
+        mm_free(ptr);
+        return ptr;
+    }
+
+    if (ptr == NULL){
+        return mm_malloc(size);
+    }
+
+    /* Check if ptr is a valid block pointer returned by ealier calls
+     * to mm_malloc and mm_realloc 
+     */
+    if (!is_block(ptr)){
+        fprintf(stderr, "Invalid pointer %p\n", ptr);
+        exit(134);
+    }
+
+    /* The legacy implementation. */
     newptr = mm_malloc(size);
     if (newptr == NULL)
       return NULL;
@@ -359,6 +381,18 @@ void *mm_realloc(void *ptr, size_t size)
 /**********************************
  * Helper functions
  **********************************/
+
+/*
+ * isin_block - Return 1 if the given block pointer
+ *     ptr is a valid block returned by previous mm_malloc or mm_realloc.
+ */
+static int isin_block(void *ptr){
+    for (void *bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
+        if (bp == ptr) return 1;
+    }
+
+    return 0;
+}
 
 /*
  * put_free - Put a untracked free block bp at the 
