@@ -414,8 +414,8 @@ void *mm_realloc(void *ptr, size_t size)
         else{
             /* Can't extend the block, find another block */
             newptr = mm_malloc(size);
-            mm_free(oldptr);
             memcpy(newptr, oldptr, oldsize - SIZE_T_SIZE);
+            mm_free(oldptr);
         }
     }
     else{    /* Shrink the block or do nothing */
