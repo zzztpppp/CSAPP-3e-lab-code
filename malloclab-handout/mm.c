@@ -109,6 +109,7 @@ static void checkblock(void *bp);
 static void checkheap(int verbose);
 static void coalesce_free(void *bp);
 static int is_block(void *bp);
+static void carve(void *bp, size_t csize);
 
 
 
@@ -347,7 +348,10 @@ void *mm_realloc(void *ptr, size_t size)
 {
     void *oldptr = ptr;
     void *newptr;
-    size_t copySize;
+    size_t copysize;
+    size_t oldsize;
+    size_t newsize;
+    size_t csize;
 
     if (size == 0){
         mm_free(ptr);
@@ -365,28 +369,94 @@ void *mm_realloc(void *ptr, size_t size)
         fprintf(stderr, "Invalid pointer %p\n", ptr);
         exit(134);
     }
+    
+    /* Reallocate a valid block, eithre to extend or to shrink the block size */
+    oldsize = GET_SIZE(HDRP(oldptr));
+    newsize = ALIGN(size + SIZE_T_SIZE);
+    csize = oldsize - newsize;
+    if (csize < 0){    /* Extend the block */
+        char *prev_bp = PREV_BLKP(oldptr);
+        char *next_bp = NEXT_BLKP(oldptr);
 
-    /* The legacy implementation. */
-    newptr = mm_malloc(size);
-    if (newptr == NULL)
-      return NULL;
-    copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
-    if (size < copySize)
-      copySize = size;
-    memcpy(newptr, oldptr, copySize);
-    mm_free(oldptr);
-    return newptr;
+        size_t prev_size = GET_SIZE(HDRP(prev_bp));
+        size_t next_size = GET_SIZE(HDRP(next_bp));
+
+        int prev_alloc = GET_ALLOC(HDRP(prev_bp));
+        int next_alloc = GET_ALLOC(HDRP(next_bp));
+
+        if ((!next_alloc) && (next_size + oldsize >= newsize)){
+            /* Extend the block via the right free block */
+            PUT(HDRP(oldptr), PACK(next_size + oldsize, 1));
+            PUT(FTRP(oldptr), PACK(next_size + oldsize, 1));
+
+            carve(oldptr, newsize - next_size - oldsize);
+            return oldptr;
+        }
+        else if (!prev_alloc && (oldsize + prev_size >= newsize)){
+            /* Extend the block via the left free block */
+            PUT(HDRP(prev_bp), PACK(prev_size + oldsize, 1));
+            PUT(FTRP(prev_bp), PACK(prev_size + oldsize, 1));
+
+            carve(prev_bp, newsize - prev_size - oldsize);
+            memcpy(prev_bp, oldptr, oldsize - SIZE_T_SIZE);
+            return prev_bp;
+        }
+        else if ((!prev_alloc && !next_alloc) && (oldsize + prev_size + next_size >= newsize)){
+            /* Extend the block via left & right free block */
+            PUT(HDRP(prev_bp), PACK(prev_size + oldsize + next_size, 1));
+            PUT(FTRP(prev_bp), PACK(prev_size + oldsize + next_size, 1));
+
+            carve(prev_bp, newsize - prev_size - oldsize - next_size);
+            memcpy(prev_bp, oldptr, oldsize - SIZE_T_SIZE);
+            return prev_bp;
+        }
+        else{
+            /* Can't extend the block, find another block */
+            newptr = mm_malloc(size);
+            mm_free(oldptr);
+            memcpy(newptr, oldptr, oldsize - SIZE_T_SIZE);
+            return newptr;
+        }
+    }
+    else{    /* Shrink the block or do nothing */
+        carve(oldptr, csize);
+        return oldptr;
+    }
 }
 
 /**********************************
  * Helper functions
  **********************************/
 
+
+/*
+ * carve - Carve out a csize-sized free block from the
+ *    the given block bp.
+ */
+static void carve(void *bp, size_t csize){
+    size_t size = GET_SIZE(HDRP(bp));
+    if(csize < 2*DSIZE){
+        return;
+    }
+    else{
+        PUT(HDRP(bp), PACK(size - csize, 1));
+        PUT(FTRP(bp), PACK(size - csize, 1));
+
+        bp = NEXT_BLKP(bp);
+        PUT(HDRP(bp), PACK(csize, 0));
+        PUT(FTRP(bp), PACK(csize, 0));
+
+        put_free(bp);
+        coalesce(bp);
+        return;
+    }
+}
+
 /*
  * isin_block - Return 1 if the given block pointer
  *     ptr is a valid block returned by previous mm_malloc or mm_realloc.
  */
-static int isin_block(void *ptr){
+static int is_block(void *ptr){
     for (void *bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
         if (bp == ptr) return 1;
     }
