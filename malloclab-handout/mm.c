@@ -37,7 +37,7 @@ team_t team = {
 };
 
 /* Enter debug mode, where mm_checkheap is invoked after ever operation */
-// #define DEBUG
+#define DEBUG
 #ifdef DEBUG
     #define mm_checkheap_d printf("Check heap at %d, %s\n", __LINE__, __FILE__);mm_checkheap();
 #else
@@ -390,7 +390,7 @@ void *mm_realloc(void *ptr, size_t size)
             PUT(FTRP(oldptr), PACK(next_size + oldsize, 1));
 
             carve(oldptr, newsize - next_size - oldsize);
-            return oldptr;
+            newptr =  oldptr;
         }
         else if (!prev_alloc && (oldsize + prev_size >= newsize)){
             /* Extend the block via the left free block */
@@ -399,7 +399,7 @@ void *mm_realloc(void *ptr, size_t size)
 
             carve(prev_bp, newsize - prev_size - oldsize);
             memcpy(prev_bp, oldptr, oldsize - SIZE_T_SIZE);
-            return prev_bp;
+            newptr = prev_bp;
         }
         else if ((!prev_alloc && !next_alloc) && (oldsize + prev_size + next_size >= newsize)){
             /* Extend the block via left & right free block */
@@ -408,20 +408,22 @@ void *mm_realloc(void *ptr, size_t size)
 
             carve(prev_bp, newsize - prev_size - oldsize - next_size);
             memcpy(prev_bp, oldptr, oldsize - SIZE_T_SIZE);
-            return prev_bp;
+            newptr = prev_bp;
         }
         else{
             /* Can't extend the block, find another block */
             newptr = mm_malloc(size);
             mm_free(oldptr);
             memcpy(newptr, oldptr, oldsize - SIZE_T_SIZE);
-            return newptr;
         }
     }
     else{    /* Shrink the block or do nothing */
         carve(oldptr, csize);
-        return oldptr;
+        newptr = oldptr;
     }
+
+    mm_checkheap_d;
+    return newptr;
 }
 
 /**********************************
