@@ -373,8 +373,7 @@ void *mm_realloc(void *ptr, size_t size)
     /* Reallocate a valid block, eithre to extend or to shrink the block size */
     oldsize = GET_SIZE(HDRP(oldptr));
     newsize = ALIGN(size + SIZE_T_SIZE);
-    csize = oldsize - newsize;
-    if (csize < 0){    /* Extend the block */
+    if (newsize > oldsize){    /* Extend the block */
         char *prev_bp = PREV_BLKP(oldptr);
         char *next_bp = NEXT_BLKP(oldptr);
 
@@ -383,6 +382,8 @@ void *mm_realloc(void *ptr, size_t size)
 
         int prev_alloc = GET_ALLOC(HDRP(prev_bp));
         int next_alloc = GET_ALLOC(HDRP(next_bp));
+
+        csize = newsize - oldsize;
 
         if ((!next_alloc) && (next_size + oldsize >= newsize)){
             /* Extend the block via the right free block */
@@ -418,6 +419,7 @@ void *mm_realloc(void *ptr, size_t size)
         }
     }
     else{    /* Shrink the block or do nothing */
+        csize = oldsize - newsize;
         carve(oldptr, csize);
         newptr = oldptr;
     }
