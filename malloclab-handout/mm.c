@@ -33,8 +33,7 @@ team_t team = {
     /* Second member's full name (leave blank if none) */
     "",
     /* Second member's email address (leave blank if none) */
-    ""
-};
+    ""};
 
 /* Enter debug mode, where mm_checkheap is invoked after ever operation */
 #define DEBUG
@@ -390,7 +389,7 @@ void *mm_realloc(void *ptr, size_t size)
             PUT(HDRP(oldptr), PACK(next_size + oldsize, 1));
             PUT(FTRP(oldptr), PACK(next_size + oldsize, 1));
 
-            carve(oldptr, newsize - next_size - oldsize);
+            carve(oldptr, next_size + oldsize - newsize);
             newptr =  oldptr;
         }
         else if (!prev_alloc && (oldsize + prev_size >= newsize)){
@@ -398,7 +397,7 @@ void *mm_realloc(void *ptr, size_t size)
             PUT(HDRP(prev_bp), PACK(prev_size + oldsize, 1));
             PUT(FTRP(prev_bp), PACK(prev_size + oldsize, 1));
 
-            carve(prev_bp, newsize - prev_size - oldsize);
+            carve(prev_bp, prev_size + oldsize - newsize);
             memcpy(prev_bp, oldptr, oldsize - SIZE_T_SIZE);
             newptr = prev_bp;
         }
@@ -407,7 +406,7 @@ void *mm_realloc(void *ptr, size_t size)
             PUT(HDRP(prev_bp), PACK(prev_size + oldsize + next_size, 1));
             PUT(FTRP(prev_bp), PACK(prev_size + oldsize + next_size, 1));
 
-            carve(prev_bp, newsize - prev_size - oldsize - next_size);
+            carve(prev_bp, prev_size + oldsize + next_size - newsize);
             memcpy(prev_bp, oldptr, oldsize - SIZE_T_SIZE);
             newptr = prev_bp;
         }
