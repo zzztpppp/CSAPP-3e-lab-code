@@ -388,6 +388,7 @@ void *mm_realloc(void *ptr, size_t size)
 
         if ((!next_alloc) && (next_size + oldsize >= newsize)){
             /* Extend the block via the right free block */
+            remove_free(next_bp);
             PUT(HDRP(oldptr), PACK(next_size + oldsize, 1));
             PUT(FTRP(oldptr), PACK(next_size + oldsize, 1));
 
@@ -396,20 +397,23 @@ void *mm_realloc(void *ptr, size_t size)
         }
         else if (!prev_alloc && (oldsize + prev_size >= newsize)){
             /* Extend the block via the left free block */
+            remove_free(prev_bp);
             PUT(HDRP(prev_bp), PACK(prev_size + oldsize, 1));
             PUT(FTRP(prev_bp), PACK(prev_size + oldsize, 1));
 
-            rbp = carve(prev_bp, prev_size + oldsize - newsize);
             memcpy(prev_bp, oldptr, oldsize - SIZE_T_SIZE);
+            rbp = carve(prev_bp, prev_size + oldsize - newsize);
             newptr = prev_bp;
         }
         else if ((!prev_alloc && !next_alloc) && (oldsize + prev_size + next_size >= newsize)){
             /* Extend the block via left & right free block */
+            remove_free(next_bp);
+            remove_free(prev_bp);
             PUT(HDRP(prev_bp), PACK(prev_size + oldsize + next_size, 1));
             PUT(FTRP(prev_bp), PACK(prev_size + oldsize + next_size, 1));
 
-            carve(prev_bp, prev_size + oldsize + next_size - newsize);
             memcpy(prev_bp, oldptr, oldsize - SIZE_T_SIZE);
+            carve(prev_bp, prev_size + oldsize + next_size - newsize);
             newptr = prev_bp;
         }
         else{
