@@ -108,7 +108,8 @@ static void checkblock(void *bp);
 static void checkheap(int verbose);
 static void coalesce_free(void *bp);
 static int is_block(void *bp);
-static void carve(void *bp, size_t csize);
+static void *carve(void *bp, size_t csize);
+static void print_freelist();
 
 
 
@@ -372,6 +373,7 @@ void *mm_realloc(void *ptr, size_t size)
     /* Reallocate a valid block, eithre to extend or to shrink the block size */
     oldsize = GET_SIZE(HDRP(oldptr));
     newsize = ALIGN(size + SIZE_T_SIZE);
+    void *rbp = NULL;
     if (newsize > oldsize){    /* Extend the block */
         char *prev_bp = PREV_BLKP(oldptr);
         char *next_bp = NEXT_BLKP(oldptr);
@@ -389,7 +391,7 @@ void *mm_realloc(void *ptr, size_t size)
             PUT(HDRP(oldptr), PACK(next_size + oldsize, 1));
             PUT(FTRP(oldptr), PACK(next_size + oldsize, 1));
 
-            carve(oldptr, next_size + oldsize - newsize);
+            rbp = carve(oldptr, next_size + oldsize - newsize);
             newptr =  oldptr;
         }
         else if (!prev_alloc && (oldsize + prev_size >= newsize)){
@@ -397,7 +399,7 @@ void *mm_realloc(void *ptr, size_t size)
             PUT(HDRP(prev_bp), PACK(prev_size + oldsize, 1));
             PUT(FTRP(prev_bp), PACK(prev_size + oldsize, 1));
 
-            carve(prev_bp, prev_size + oldsize - newsize);
+            rbp = carve(prev_bp, prev_size + oldsize - newsize);
             memcpy(prev_bp, oldptr, oldsize - SIZE_T_SIZE);
             newptr = prev_bp;
         }
@@ -416,11 +418,18 @@ void *mm_realloc(void *ptr, size_t size)
             memcpy(newptr, oldptr, oldsize - SIZE_T_SIZE);
             mm_free(oldptr);
         }
+        
     }
     else{    /* Shrink the block or do nothing */
         csize = oldsize - newsize;
-        carve(oldptr, csize);
+        rbp = carve(oldptr, csize);
         newptr = oldptr;
+    }
+
+    /* Deal with the free block left during the expanding of the old block */
+    if (rbp != NULL){
+        put_free(rbp);
+        coalesce(rbp);
     }
 
     mm_checkheap_d;
@@ -436,10 +445,10 @@ void *mm_realloc(void *ptr, size_t size)
  * carve - Carve out a csize-sized free block from the
  *    the given block bp.
  */
-static void carve(void *bp, size_t csize){
+static void *carve(void *bp, size_t csize){
     size_t size = GET_SIZE(HDRP(bp));
     if(csize < 2*DSIZE){
-        return;
+        return NULL;
     }
     else{
         PUT(HDRP(bp), PACK(size - csize, 1));
@@ -449,9 +458,7 @@ static void carve(void *bp, size_t csize){
         PUT(HDRP(bp), PACK(csize, 0));
         PUT(FTRP(bp), PACK(csize, 0));
 
-        put_free(bp);
-        coalesce(bp);
-        return;
+        return bp;
     }
 }
 
@@ -571,9 +578,9 @@ static void mm_checkheap(void){
     char *next_bp;
     checkheap(0);
     if (free_listp != NULL){
+        int found = 0;
         
         /* Check free list to be address ordered */
-        printf("Check that free blocks are address-ordered.\n");
         for (bp = free_listp; (next_bp = SUCC_BLKP(bp)) != NULL; bp=next_bp){
             // printblock(bp);
            if (ADDR_GTR(PRED_BLKP(bp), bp))
@@ -582,20 +589,21 @@ static void mm_checkheap(void){
         }
 
         /* Check that blocks presenting at free list are marked as free in heap list */
-        printf("Check free block false negatives\n");
         for (bp = free_listp; bp != NULL; bp = SUCC_BLKP(bp)){
-            // printblock(bp);
-            if (GET_ALLOC(HDRP(bp)))
-                printf("Block %p in free list but is allocated.\n", bp);
+            for (char *hbp = heap_listp;  GET_SIZE(HDRP(hbp)) > 0; hbp = NEXT_BLKP(hbp)){
+                if ((bp == hbp) && (GET_ALLOC(HDRP(hbp)) == 0)) found = 1;
+            }
+
+            if (!found) {
+                printf("Block %p in free list but not marked as free.\n", bp);
+            }
         }
     }
 
     /* Check that blocks in heap list marked as free are in free list */
-    for (bp = heap_listp; (!GET_ALLOC(HDRP(bp))) && (GET_SIZE(HDRP(bp)) > 0); bp = NEXT_BLKP(bp)){
-        printf("Checking free blocks false positive.\n");
-        if (!isin_free(bp)){
-            printf("Block %p markded as free but not found in free list.\n",
-                    bp);
+    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
+        if ((GET_ALLOC(HDRP(bp)) == 0) && (!isin_free(bp))){
+            printf("Block %p markded as free but not found in free list.\n", bp);
         }
     }
 }
@@ -618,6 +626,14 @@ static void printblock(void *bp)
     printf("%p: header: [%ld:%c] footer: [%ld:%c]\n", bp, 
            hsize, (halloc ? 'a' : 'f'), 
            fsize, (falloc ? 'a' : 'f')); 
+}
+
+static void print_freelist(){
+    void *bp = free_listp;
+    while(bp != NULL){
+        printblock(bp);
+        bp = SUCC_BLKP(bp);
+    }
 }
  
 
