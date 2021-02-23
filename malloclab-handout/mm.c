@@ -36,7 +36,7 @@ team_t team = {
     ""};
 
 /* Enter debug mode, where mm_checkheap is invoked after ever operation */
-#define DEBUG
+// #define DEBUG
 #ifdef DEBUG
     #define mm_checkheap_d printf("Check heap at %d, %s\n", __LINE__, __FILE__);mm_checkheap();
 #else
@@ -401,7 +401,7 @@ void *mm_realloc(void *ptr, size_t size)
             PUT(HDRP(prev_bp), PACK(prev_size + oldsize, 1));
             PUT(FTRP(prev_bp), PACK(prev_size + oldsize, 1));
 
-            memcpy(prev_bp, oldptr, oldsize - SIZE_T_SIZE);
+            memmove(prev_bp, oldptr, oldsize - SIZE_T_SIZE);
             rbp = carve(prev_bp, prev_size + oldsize - newsize);
             newptr = prev_bp;
         }
@@ -419,7 +419,7 @@ void *mm_realloc(void *ptr, size_t size)
         else{
             /* Can't extend the block, find another block */
             newptr = mm_malloc(size);
-            memcpy(newptr, oldptr, oldsize - SIZE_T_SIZE);
+            memmove(newptr, oldptr, oldsize - SIZE_T_SIZE);
             mm_free(oldptr);
         }
         
