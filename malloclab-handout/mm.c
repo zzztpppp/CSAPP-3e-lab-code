@@ -44,7 +44,7 @@ team_t team = {
 #endif
 
 /* If NEXT_FIT defined, use next fit search else use first fit search */
-#define NEXT_FIT
+// #define NEXT_FIT
 
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
@@ -190,9 +190,6 @@ static void *coalesce(void *bp)
     size_t next_alloc = GET_ALLOC(HDRP(next_bp));
     size_t size = GET_SIZE(HDRP(bp));
 
-    /* Coalesce adjacent blocks of bp in free list first */
-    coalesce_free(bp);
-
     if (prev_alloc && next_alloc) { /* Case 1 */
         return bp;
     }
@@ -200,11 +197,20 @@ static void *coalesce(void *bp)
     else if (prev_alloc && !next_alloc) { /* Case 2 */
 
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+#ifdef NEXT_FIT
+        if(rover == next_bp) rover = bp;
+#endif
+        remove_free(next_bp);
+
         PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size,0));
     }
 
     else if (!prev_alloc && next_alloc) { /* Case 3 */
+#ifdef NEXT_FIT
+        if (rover == bp) rover = prev_bp;
+#endif
+        remove_free(bp);
 
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
         PUT(FTRP(bp), PACK(size, 0));
@@ -213,6 +219,11 @@ static void *coalesce(void *bp)
     }
 
     else { /* Case 4 */
+#ifdef NEXT_FIT
+        if ((rover == bp) || (rover == next_bp)) rover = prev_bp;
+#endif
+        remove_free(bp);
+        remove_free(next_bp);
 
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) +
         GET_SIZE(FTRP(NEXT_BLKP(bp)));
@@ -531,32 +542,10 @@ static void put_free(void *bp)
         return;
     }
 
-    /* Check if the block to insert has the lowest address order */
-    if (ADDR_GTR(free_listp, bp)){
-        PUT_P(SUCCP(bp), free_listp);
-        PUT_P(PREDP(free_listp), bp);
-        free_listp = bp;
-        return;
-    }
-     
-    char *node_bp = free_listp;
-    void *succ_bp = SUCC_BLKP(node_bp);
-
-    /* Find the predecessor of bp */   
-    while (ADDR_GTR(bp, node_bp)){
-        if ((succ_bp == NULL) || ADDR_GTR(succ_bp, bp)) 
-            break;
-        node_bp = succ_bp;
-        succ_bp = SUCC_BLKP(node_bp);
-    }
-
-    /* Insert bp between node_bp and succ_bp, if any.*/
-    if (succ_bp != NULL){
-        PUT_P(PREDP(succ_bp), bp);
-    }
-    PUT_P(SUCCP(node_bp), bp);
-    PUT_P(PREDP(bp), node_bp);
-    PUT_P(SUCCP(bp), succ_bp);
+    /* Append to the beginning of the free list */
+    PUT_P(SUCCP(bp), free_listp);
+    PUT_P(PREDP(free_listp), bp);
+    free_listp = bp;
 
     return;
 }
