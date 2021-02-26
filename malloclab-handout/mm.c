@@ -312,8 +312,8 @@ static void *find_fit(size_t asize, void *heap_listp){
 #else
 
     char *bp = free_listp;
-    while ((bp != NULL) && (GET_ALLOC(HDRP(bp)) || (GET_SIZE(HDRP(bp)) < asize))){
-        bp = SUCC_BLKP(bp);
+    for (;bp != NULL; bp = SUCC_BLKP(bp)){
+        if (GET_SIZE(HDRP(bp)) >= asize) return bp;
     }
 
     return bp;
