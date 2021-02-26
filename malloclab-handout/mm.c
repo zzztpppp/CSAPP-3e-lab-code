@@ -43,6 +43,9 @@ team_t team = {
     #define mm_checkheap_d ((void)0)
 #endif
 
+/* If NEXT_FIT defined, use next fit search else use first fit search */
+// #define NEXT_FIT
+
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
 
@@ -112,11 +115,14 @@ static void *carve(void *bp, size_t csize);
 static void print_freelist();
 
 
-
 // Pointer pointing to the first free block
 static void *free_listp;
 
 static char *heap_listp;
+
+#ifdef NEXT_FIT
+static char *rover;
+#endif
 
 /* 
  * mm_init - initialize the malloc package.
@@ -236,10 +242,16 @@ static void coalesce_free(void *bp){
 
     /* If both conditions are hit, then its case 4. If none is hit, its case 1 */
     if (succ_bp == next_bp){
+#ifdef NEXT_FIT
+        if (rover == succ_bp) rover = bp;
+#endif
         remove_free(succ_bp);  /* Case 2 */ 
     }
 
     if (prev_bp == pred_bp){
+#ifdef NEXT_FIT
+    if (rover == bp) rover = pred_bp;
+#endif
         remove_free(bp);      /* Case 3 */
     }
 
@@ -283,12 +295,29 @@ void *mm_malloc(size_t size)
  */
 static void *find_fit(size_t asize, void *heap_listp){
 
+#ifdef NEXT_FIT
+    char *old_rover = rover;
+    for (;rover != NULL;rover=SUCC_BLKP(rover)){
+        if (GET_SIZE(HDRP(rover)) >= asize) return rover;
+    }
+
+    for (rover = free_listp; (rover != NULL) && (rover != old_rover); rover = SUCC_BLKP(rover)){
+        if (GET_SIZE(HDRP(rover)) >= asize) return rover;
+    }
+
+    /* Reset rover */
+    rover = (rover == NULL)? free_listp: rover;
+
+    return NULL;
+#else
+
     char *bp = free_listp;
     while ((bp != NULL) && (GET_ALLOC(HDRP(bp)) || (GET_SIZE(HDRP(bp)) < asize))){
         bp = SUCC_BLKP(bp);
     }
 
     return bp;
+#endif
 }
 
 /*
@@ -298,6 +327,10 @@ static void *find_fit(size_t asize, void *heap_listp){
 void place(void *bp, size_t size){
     size_t block_size = GET_SIZE(HDRP(bp));
     size_t csize = block_size - size;
+
+#ifdef NEXT_FIT
+    rover = SUCC_BLKP(bp);
+#endif
 
     /* Remove the block from free list */
     remove_free(bp);
@@ -313,6 +346,10 @@ void place(void *bp, size_t size){
 
         /* Put the residual block into free list */
         put_free(bp);
+
+#ifdef NEXT_FIT
+        rover = bp;
+#endif
 
     }
     else{
