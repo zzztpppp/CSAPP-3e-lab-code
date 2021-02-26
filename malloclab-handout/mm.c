@@ -44,7 +44,7 @@ team_t team = {
 #endif
 
 /* If NEXT_FIT defined, use next fit search else use first fit search */
-// #define NEXT_FIT
+#define NEXT_FIT
 
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
