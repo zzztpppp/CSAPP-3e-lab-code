@@ -423,6 +423,9 @@ void *mm_realloc(void *ptr, size_t size)
 
         csize = newsize - oldsize;
         if (!prev_alloc && (oldsize + prev_size >= newsize)){
+#ifdef NEXT_FIT
+            if (rover == prev_bp) rover = SUCC_BLKP(rover);
+#endif
             /* Extend the block via the left free block */
             remove_free(prev_bp);
             PUT(HDRP(prev_bp), PACK(prev_size + oldsize, 1));
@@ -434,6 +437,9 @@ void *mm_realloc(void *ptr, size_t size)
         }
 
         else if ((!next_alloc) && (next_size + oldsize >= newsize)){
+#ifdef NEXT_FIT
+            if (rover == next_bp) rover = SUCC_BLKP(rover);
+#endif
             /* Extend the block via the right free block */
             remove_free(next_bp);
             PUT(HDRP(oldptr), PACK(next_size + oldsize, 1));
@@ -443,6 +449,11 @@ void *mm_realloc(void *ptr, size_t size)
             newptr =  oldptr;
         }
         else if ((!prev_alloc && !next_alloc) && (oldsize + prev_size + next_size >= newsize)){
+#ifdef NEXT_FIT
+            if ((rover == next_bp) || (rover == prev_bp)){
+                rover = SUCC_BLKP(next_bp);
+            } 
+#endif
             /* Extend the block via left & right free block */
             remove_free(next_bp);
             remove_free(prev_bp);
