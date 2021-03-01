@@ -332,7 +332,10 @@ void place(void *bp, size_t size){
     rover = SUCC_BLKP(bp);
 #endif
 
-    /* Remove the block from free list */
+    /* Remove the block from free list, remember its pred and succ */
+    char *pred_bp = PRED_BLKP(bp);
+    char *succ_bp = SUCC_BLKP(bp);
+
     remove_free(bp);
 
     if (csize >= 2*DSIZE){
@@ -344,8 +347,19 @@ void place(void *bp, size_t size){
         PUT(HDRP(bp), PACK(csize, 0));
         PUT(FTRP(bp), PACK(csize, 0));
 
-        /* Put the residual block into free list */
-        put_free(bp);
+        /* Residual block inherit successor and predecessor from the old bp */
+        PUT(SUCCP(bp), NULL);
+        PUT(PREDP(bp), NULL);
+        if (pred_bp == NULL) free_listp = bp;
+        if (pred_bp != NULL) {
+            PUT_P(SUCCP(pred_bp), bp);
+            PUT_P(PREDP(bp), pred_bp);
+        }
+        if (succ_bp != NULL) {
+            PUT_P(PREDP(succ_bp), bp);
+            PUT_P(SUCCP(bp), succ_bp);
+        }
+
 
 #ifdef NEXT_FIT
         rover = bp;
