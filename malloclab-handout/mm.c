@@ -44,7 +44,7 @@ team_t team = {
 #endif
 
 /* If NEXT_FIT defined, use next fit search else use first fit search */
-#define NEXT_FIT
+// #define NEXT_FIT
 
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8 
@@ -61,6 +61,7 @@ team_t team = {
 #define CHUNKSIZE (1<<12) /* Extend heap by this amount (bytes) */
 
 #define MAX(x, y) ((x) > (y)? (x) : (y))
+#define MIN(x, y) ((x) < (y)? (x) : (y))
 
 /* Pack a size and allocated bit into a word */
 #define PACK(size, alloc) ((size) | (alloc))
@@ -113,7 +114,13 @@ static void coalesce_free(void *bp);
 static int is_block(void *bp);
 static void *carve(void *bp, size_t csize);
 static void print_freelist();
+static unsigned int uint_log2(unsigned int x);
 
+
+// Array that holds pointers of different size class of free_listp.
+static void **free_listarray;
+/* Number of size class of segregate free list */
+static size_t n_sizeclass = 24;
 
 // Pointer pointing to the first free block
 static void *free_listp;
@@ -130,6 +137,11 @@ static char *rover;
 int mm_init(void)
 {
     void *bp;
+    size_t n_sizeclass;
+
+    // Create initial free_listp array
+    if ((free_listarray = mem_sbrk(n_sizeclass * WSIZE)) == (void *)-1)
+        return -1;
 
     // Create the initial empty heap
     if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
@@ -190,9 +202,6 @@ static void *coalesce(void *bp)
     size_t next_alloc = GET_ALLOC(HDRP(next_bp));
     size_t size = GET_SIZE(HDRP(bp));
 
-    /* Coalesce adjacent blocks of bp in free list first */
-    coalesce_free(bp);
-
     if (prev_alloc && next_alloc) { /* Case 1 */
         return bp;
     }
@@ -200,19 +209,25 @@ static void *coalesce(void *bp)
     else if (prev_alloc && !next_alloc) { /* Case 2 */
 
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+
+        remove_free(next_bp);
         PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size,0));
     }
 
-    else if (!prev_alloc && next_alloc) { /* Case 3 */
-
+    else if (!prev_alloc && next_alloc) { /* Case 3 */  
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
+
+        remove_free(bp);
         PUT(FTRP(bp), PACK(size, 0));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         bp = prev_bp;
     }
 
     else { /* Case 4 */
+
+        remove_free(bp);
+        remove_free(next_bp);
 
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) +
         GET_SIZE(FTRP(NEXT_BLKP(bp)));
@@ -314,13 +329,16 @@ static void *find_fit(size_t asize, void *heap_listp){
 
     return NULL;
 #else
+    for (size_t size_class=get_sizeclass(asize); size_class < n_sizeclass){
+        free_listp = activate_freelist(size_class);
 
-    char *bp = free_listp;
-    for (;bp != NULL; bp = SUCC_BLKP(bp)){
-        if (GET_SIZE(HDRP(bp)) >= asize) return bp;
+        for (char *bp; bp != NULL; bp = SUCC_BLKP(bp)){
+            if (GET_SIZE(HDRP(bp)) >= asize) return bp;
+        }
     }
 
-    return bp;
+    reutrn bp;
+
 #endif
 }
 
@@ -554,6 +572,8 @@ static void put_free(void *bp)
     PUT_P(SUCCP(bp), NULL);
     PUT_P(PREDP(bp), NULL);
 
+    get_actiivate_freelistp(bp);
+
     if (free_listp == NULL){
         /* The free list is empty */
         free_listp = bp;
@@ -599,6 +619,8 @@ static void remove_free(void *bp){
     void *pred_bp = PRED_BLKP(bp);
     void *succ_bp = SUCC_BLKP(bp);
 
+    get_actiivate_freelistp(bp);
+
     if (pred_bp != NULL)
         PUT_P(SUCCP(pred_bp), succ_bp);
 
@@ -611,6 +633,59 @@ static void remove_free(void *bp){
     
     return;
 }
+
+/*
+ * get_activate_freelistp - Given block pointer bp
+ *     activate its corresponding free_listp
+ */
+static void get_actiivate_freelistp(void *bp){
+    size_t size = GET_SIZE(HDRP(bp));
+    activate_freelist(get_sizeclass(size));
+    return;
+}
+
+
+/*
+ * activate_freelist - Activate free_listp to the given 
+ *     size class.
+ */
+static void activate_freelist(size_t sizeclass){
+    free_listp = free_listarray[sizeclass];
+    return;
+}
+
+
+/*
+ * get_sizeclass - Given size, return the size class
+ *     the free_list it should search through.
+ */
+static size_t get_sizeclass(size_t size){
+    size_t size_log2 = uint_log2(size);
+
+    /* Blocks of 16 bytes to 128 bytes go to the same size class */
+    return MIN(MAX(0, size_log2 - 6), n_sizeclass);
+}
+
+/*
+ * uint_log2 - Calculate 2 based logrithm of an unsigned int value
+ */
+static unsigned int uint_log2(unsigned int x){
+    size_t shifts_hi = 31;
+    size_t shifts_lo = 0;
+    size_t shifts;
+    size_t s;
+
+    /* Binary search */
+    while (1){
+        shifts = (shifts_lo + shifts_hi)>> 1;
+        s = x >> shifts;
+
+        if (s == 0) shifts_hi = shifts;
+        else if (s == 1) return shifts;
+        else shifts_lo = shifts;
+    }
+}
+
 
 
 /************************************************************* 
