@@ -115,15 +115,21 @@ static int is_block(void *bp);
 static void *carve(void *bp, size_t csize);
 static void print_freelist();
 static unsigned int uint_log2(unsigned int x);
-
+static void get_actiivate_freelistp(void *bp);
+static size_t get_sizeclass(size_t size);
+static void activate_freelistp(size_t sizeclass);
+static void set_as_freelistp(void *bp);
+static void print_freelist_arg(void *fp);
+static void print_freelistarray();
 
 // Array that holds pointers of different size class of free_listp.
-static void **free_listarray;
+static char **free_listarray;
+
 /* Number of size class of segregate free list */
 static size_t n_sizeclass = 24;
 
 // Pointer pointing to the first free block
-static void *free_listp;
+static void *free_listp = NULL;
 
 static char *heap_listp;
 
@@ -137,11 +143,13 @@ static char *rover;
 int mm_init(void)
 {
     void *bp;
-    size_t n_sizeclass;
 
     // Create initial free_listp array
     if ((free_listarray = mem_sbrk(n_sizeclass * WSIZE)) == (void *)-1)
         return -1;
+    for (int i = 0; i < n_sizeclass; i++){
+        free_listarray[i] = NULL;
+    }
 
     // Create the initial empty heap
     if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
@@ -154,12 +162,11 @@ int mm_init(void)
     
     heap_listp = heap_listp + (2*WSIZE);
 
-    free_listp = NULL;
     if ((bp = extend_heap(CHUNKSIZE/WSIZE)) == NULL)
         return -1;
     
     /* Initialize free_listp to contain the block that we just carved out */
-    free_listp = bp;
+    put_free(bp);
 
     mm_checkheap_d;
     
@@ -329,15 +336,16 @@ static void *find_fit(size_t asize, void *heap_listp){
 
     return NULL;
 #else
-    for (size_t size_class=get_sizeclass(asize); size_class < n_sizeclass){
-        free_listp = activate_freelist(size_class);
+    char *bp = NULL;
+    for (size_t size_class=get_sizeclass(asize); size_class < n_sizeclass; size_class++){
+        activate_freelistp(size_class);
 
-        for (char *bp; bp != NULL; bp = SUCC_BLKP(bp)){
+        for (bp = free_listp; bp != NULL; bp = SUCC_BLKP(bp)){
             if (GET_SIZE(HDRP(bp)) >= asize) return bp;
         }
     }
 
-    reutrn bp;
+    return NULL;
 
 #endif
 }
@@ -372,7 +380,7 @@ void place(void *bp, size_t size){
         /* Residual block inherit successor and predecessor from the old bp */
         PUT(SUCCP(bp), NULL);
         PUT(PREDP(bp), NULL);
-        if (pred_bp == NULL) free_listp = bp;
+        if (pred_bp == NULL) set_as_freelistp(bp);
         if (pred_bp != NULL) {
             PUT_P(SUCCP(pred_bp), bp);
             PUT_P(PREDP(bp), pred_bp);
@@ -576,7 +584,7 @@ static void put_free(void *bp)
 
     if (free_listp == NULL){
         /* The free list is empty */
-        free_listp = bp;
+        set_as_freelistp(bp);
         return;
     }
 
@@ -584,7 +592,7 @@ static void put_free(void *bp)
     if (ADDR_GTR(free_listp, bp)){
         PUT_P(SUCCP(bp), free_listp);
         PUT_P(PREDP(free_listp), bp);
-        free_listp = bp;
+        set_as_freelistp(bp);
         return;
     }
      
@@ -629,7 +637,7 @@ static void remove_free(void *bp){
    
     /* We are removing the fisrt block */ 
     if (pred_bp == NULL)
-        free_listp = succ_bp;
+        set_as_freelistp(succ_bp);
     
     return;
 }
@@ -640,16 +648,16 @@ static void remove_free(void *bp){
  */
 static void get_actiivate_freelistp(void *bp){
     size_t size = GET_SIZE(HDRP(bp));
-    activate_freelist(get_sizeclass(size));
+    activate_freelistp(get_sizeclass(size));
     return;
 }
 
 
 /*
- * activate_freelist - Activate free_listp to the given 
+ * activate_freelistp - Activate free_listp to the given 
  *     size class.
  */
-static void activate_freelist(size_t sizeclass){
+static void activate_freelistp(size_t sizeclass){
     free_listp = free_listarray[sizeclass];
     return;
 }
@@ -663,7 +671,7 @@ static size_t get_sizeclass(size_t size){
     size_t size_log2 = uint_log2(size);
 
     /* Blocks of 16 bytes to 128 bytes go to the same size class */
-    return MIN(MAX(0, size_log2 - 6), n_sizeclass);
+    return MIN(MAX(0, size_log2 - 6), n_sizeclass-1);
 }
 
 /*
@@ -684,6 +692,16 @@ static unsigned int uint_log2(unsigned int x){
         else if (s == 1) return shifts;
         else shifts_lo = shifts;
     }
+}
+
+/*
+ * set_as_freelistp - Set the given block pointer as 
+ *     the intitail block pointer of the corresponding 
+ *     free_list.
+ */
+static void set_as_freelistp(void *bp){
+    size_t sizeclass = get_sizeclass(GET_SIZE(HDRP(bp)));
+    free_listarray[sizeclass] = bp;
 }
 
 
@@ -779,6 +797,24 @@ static void print_freelist(){
         printblock(bp);
         bp = SUCC_BLKP(bp);
     }
+}
+
+static void print_freelist_arg(void *fp){
+    void *bp = fp;
+    while(bp != NULL){
+        printblock(bp);
+        bp = SUCC_BLKP(bp);
+    }
+}
+
+static void print_freelistarray(){
+    void *fp;
+    for (int i = 0; i < n_sizeclass; i++){
+        fp = free_listarray[i];
+        printf("-----Free list of size class %d, at %p -----\n", i, fp);
+        print_freelist_arg(fp);
+    }
+    return;
 }
  
 
