@@ -56,7 +56,7 @@ int main(int argc, char **argv)
  * from the socket connection connfd.
  */
 static int process_request(int connfd, char *request_for, char *servername, char *portname){
-    char buf[MAXLINE], method[MAXLINE], url[MAXLINE], version[MAXLINE];
+    char buf[MAXLINE], method[MAXLINE], url[MAXLINE], version[MAXLINE], uri[MAXLINE];
     rio_t rp; 
 
     /* Read request lines and headers */
@@ -85,15 +85,20 @@ static int process_request(int connfd, char *request_for, char *servername, char
     /* Ignore '://' in the request body, and parse out host and port */
     ptr += 3;
     strcpy(servername, ptr);
-    if (!(ptr = index(servername, ':')) {
+    if (!(ptr = index(servername, ':'))) {
         strcpy(portname, "8080");
     }
     else {
         strcpy(portname, ptr);
+        *ptr = '\0';    /* Terminate portname string */
     }
 
-    /* URI */
-    if ()
+    /* Parse URI */
+    ptr = index(portname, '/');
+    strcpy(uri, ptr);
+    *ptr = '\0';
+    
+    /* Re-construct the client request and add extra proxy headers */
 
 
 }
