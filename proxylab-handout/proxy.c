@@ -14,7 +14,8 @@ int main(int argc, char **argv)
     socklen_t clientlen, serverlen;
     char clientname[MAXLINE], clientport[MAXLINE], servername[MAXLINE], serverport[MAXLINE];
     struct sockaddr_storage client_addr, server_addr;
-    char *request_for, *response_for;
+    char response_for[MAXLINE] = {0};
+    char request_for[MAXLINE] = {0};
 
     /* Check command line arguements */
     if (argv != 2) {
@@ -33,7 +34,7 @@ int main(int argc, char **argv)
         printf("Conected from (%s %s)\n", clientname, clientport);
 
         /* Read and process request from the client*/
-        if (process_request(connfd, &request_for, &servername, &serverport) == -1) {
+        if (process_request(connfd, request_for, servername, serverport) == -1) {
             /* Ignore malformed request */
             Close(connfd);
             continue;
@@ -41,12 +42,12 @@ int main(int argc, char **argv)
 
         /* If the request is valid, forward it to the server */
         connfd = Open_clientfd(servername, serverport);
-        if (process_response(connfd, &response_for) == -1){
+        if (process_response(connfd, response_for) == -1){
             /* Ignore malformed response */
             Close(connfd);
             continue;
         }
-        Rio_writen(connfd, &response_for, strlen(response_for));
+        Rio_writen(connfd, response_for, strlen(response_for));
     }
 }
 
@@ -55,7 +56,7 @@ int main(int argc, char **argv)
  * process_request - Process the comming request 
  * from the socket connection connfd.
  */
-static int process_request(int connfd, char *request_for, char *servername, char *portname){
+int process_request(int connfd, char *request_for, char *servername, char *portname){
     char buf[MAXLINE], method[MAXLINE], url[MAXLINE], version[MAXLINE], uri[MAXLINE];
     rio_t rp; 
 
@@ -82,7 +83,7 @@ static int process_request(int connfd, char *request_for, char *servername, char
         return -1;
     }
 
-    /* Ignore '://' in the request body, and parse out host and port */
+    /* Ignore "://" in the request body, and parse out host and port */
     ptr += 3;
     strcpy(servername, ptr);
     if (!(ptr = index(servername, ':'))) {
@@ -99,8 +100,60 @@ static int process_request(int connfd, char *request_for, char *servername, char
     *ptr = '\0';
     
     /* Re-construct the client request and add extra proxy headers */
+}
 
 
+/* 
+ * construct_request - Decorate clinet request headers and body with 
+ *     proxy headers
+ */
+void contruct_request(rio_t *rp, char *request_for, char *method, char *uri, char *hostname) {
+
+    char buf[MAXLINE];
+    int add_host = 1;
+    
+    /* Construct request lines */
+    sprintf(request_for, "%s %s %s\r\n", method, uri, "HTTP/1.0");
+
+    /* Append addional headers from client */
+    Rio_readlineb(rp, buf, MAXLINE);
+    while (strcmp(buf, "\r\n")) {
+        Rio_readlineb(rp, buf, MAXLINE);
+        if (!strncmp("Host", buf, strlen("Host"))) {
+            add_host = 0;  /* The Host header is all ready there, no need to add. */
+        }
+        sprintf(request_for, "%s%s", request_for, buf);
+    }
+
+    /* Consturct proxy-dependent request headers */
+    if (add_host)
+        sprintf(request_for, "%sHost: %s\r\n", hostname);
+    sprintf(request_for, "%sUser-Agent: %s\r\n", request_for, user_agent_hdr);
+    sprintf(request_for, "%sConnection: close\r\n", request_for);
+    sprintf(request_for, "%sProxy-Connection: close\r\n", request_for);
+
+    /* End the request */
+    sprintf(request_for, "%s\r\n", request_for);
+}
+
+
+/*
+ * construct_response - Process server response comming from connfd
+ *     it simplely does nothing but buffer the respose.
+ */
+int process_response(int connfd, char *response_for) {
+    rio_t rp;
+    Rio_readinitb(&rp, connfd);
+    char buf[MAXLINE];
+
+    Rio_readlineb(&rp, buf, MAXLINE);
+    while (!strcmp(buf, "\r\n"))
+    {
+        Rio_readlineb(&rp, buf, MAXLINE);
+        sprintf(response_for,  "%s%s", response_for, buf);
+    }
+
+    sprintf(response_for, "%s\r\n", response_for);
 }
 
 
