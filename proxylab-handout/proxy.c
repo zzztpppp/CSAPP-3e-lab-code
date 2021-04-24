@@ -8,17 +8,24 @@
 /* You won't lose style points for including this long line in your code */
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:10.0.3) Gecko/20120305 Firefox/10.0.3\r\n";
 
+/* Helper functions */
+int process_request(int connfd, char *request_for, char *servername, char *portname);
+void contruct_request(rio_t *rp, char *request_for, char *method, char *uri, char *hostname);
+int process_response(int connfd, char *response_for);
+void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg);
+
+
 int main(int argc, char **argv)
 {
     int listenfd, connfd;
-    socklen_t clientlen, serverlen;
+    socklen_t clientlen;
     char clientname[MAXLINE], clientport[MAXLINE], servername[MAXLINE], serverport[MAXLINE];
-    struct sockaddr_storage client_addr, server_addr;
+    struct sockaddr_storage client_addr;
     char response_for[MAXLINE] = {0};
     char request_for[MAXLINE] = {0};
 
     /* Check command line arguements */
-    if (argv != 2) {
+    if (argc != 2) {
         fprintf(stderr, "usage: %s <port>\n", argv[0]);
         exit(1);
     }
@@ -84,7 +91,7 @@ int process_request(int connfd, char *request_for, char *servername, char *portn
     }
 
     /* Ignore "://" in the request body, and parse out host and port */
-    ptr += 3;
+    ptr = url + 3;
     strcpy(servername, ptr);
     if (!(ptr = index(servername, ':'))) {
         strcpy(portname, "8080");
@@ -100,6 +107,8 @@ int process_request(int connfd, char *request_for, char *servername, char *portn
     *ptr = '\0';
     
     /* Re-construct the client request and add extra proxy headers */
+    contruct_request(&rp, request_for, method, uri, servername);
+    return 0;
 }
 
 
@@ -122,18 +131,18 @@ void contruct_request(rio_t *rp, char *request_for, char *method, char *uri, cha
         if (!strncmp("Host", buf, strlen("Host"))) {
             add_host = 0;  /* The Host header is all ready there, no need to add. */
         }
-        sprintf(request_for, "%s%s", request_for, buf);
+        sprintf(request_for + strlen(request_for), "%s", buf);
     }
 
     /* Consturct proxy-dependent request headers */
     if (add_host)
-        sprintf(request_for, "%sHost: %s\r\n", hostname);
-    sprintf(request_for, "%sUser-Agent: %s\r\n", request_for, user_agent_hdr);
-    sprintf(request_for, "%sConnection: close\r\n", request_for);
-    sprintf(request_for, "%sProxy-Connection: close\r\n", request_for);
+        sprintf(request_for + strlen(request_for), "Host: %s\r\n", hostname);
+    sprintf(request_for + strlen(request_for), "User-Agent: %s\r\n", user_agent_hdr);
+    sprintf(request_for + strlen(request_for), "Connection: close\r\n");
+    sprintf(request_for + strlen(request_for), "Proxy-Connection: close\r\n");
 
     /* End the request */
-    sprintf(request_for, "%s\r\n", request_for);
+    sprintf(request_for + strlen(request_for), "\r\n");
 }
 
 
@@ -147,13 +156,13 @@ int process_response(int connfd, char *response_for) {
     char buf[MAXLINE];
 
     Rio_readlineb(&rp, buf, MAXLINE);
-    while (!strcmp(buf, "\r\n"))
+    sprintf(response_for, "%s", buf);
+    while (Rio_readlineb(&rp, buf, MAXLINE) > 0)
     {
-        Rio_readlineb(&rp, buf, MAXLINE);
-        sprintf(response_for,  "%s%s", response_for, buf);
+        sprintf(response_for + strlen(response_for),  "%s", buf);
     }
 
-    sprintf(response_for, "%s\r\n", response_for);
+    return 0;
 }
 
 
@@ -162,8 +171,7 @@ int process_response(int connfd, char *response_for) {
  * clienterror - Emit error message to socket client 
  *     at fd.
  */
-void clienterror(int fd, char *cause, char *errnum, 
-		 char *shortmsg, char *longmsg) 
+void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg) 
 {
     char buf[MAXLINE];
 
