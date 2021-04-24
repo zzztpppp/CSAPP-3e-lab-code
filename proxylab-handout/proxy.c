@@ -75,8 +75,9 @@ int process_request(int connfd, char *request_for, char *servername, char *portn
     printf("%s \n", buf);
 
     sscanf(buf, "%s %s %s", method, url, version);
-
-    if (!strcasecmp(method, "GET")) {
+    printf("%s %s %s\n", method, url, version);
+    printf("%d\n", !strcasecmp(method, "GET"));
+    if (strcasecmp(method, "GET")) {
         clienterror(connfd, method, "501", "Not implemented", 
                     "This method is not implemented");
         return -1;
@@ -84,14 +85,14 @@ int process_request(int connfd, char *request_for, char *servername, char *portn
     
     char *ptr;
     /* Parse out host and port */
-    if (!strstr(url, "http:")) {
+    if (strncasecmp(url, "http", 4)) {
         clienterror(connfd, url, "400", "Bad request", 
                     "Request cannot be understood");
         return -1;
     }
 
     /* Ignore "://" in the request body, and parse out host and port */
-    ptr = url + 3;
+    ptr = url + 6;
     strcpy(servername, ptr);
     if (!(ptr = index(servername, ':'))) {
         strcpy(portname, "8080");
