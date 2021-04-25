@@ -5,6 +5,16 @@
 #define MAX_CACHE_SIZE 1049000
 #define MAX_OBJECT_SIZE 102400
 
+/* Debug control */
+#define DEBUG
+
+#ifdef DEBUG
+    #define debug_print(msg) printf("At %s:%s\n", __LINE__, __FILE__);print_msg(msg);
+#else
+    #define debug_print(msg) ((void)0)
+#endif
+
+
 /* You won't lose style points for including this long line in your code */
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:10.0.3) Gecko/20120305 Firefox/10.0.3\r\n";
 
@@ -193,4 +203,13 @@ void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longms
     Rio_writen(fd, buf, strlen(buf));
     sprintf(buf, "<hr><em>The Tiny Web server</em>\r\n");
     Rio_writen(fd, buf, strlen(buf));
+}
+
+
+/***************************** 
+ * Helper-functions for debug
+ *****************************/
+void print_msg(char *msg) {
+    printf("%s", msg);
+    return;
 }
