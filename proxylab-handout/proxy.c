@@ -24,11 +24,12 @@ void contruct_request(rio_t *rp, char *request_for, char *method, char *uri, cha
 int process_response(int connfd, char *response_for);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg);
 void print_msg(char *msg);
+void parse_url(char *url, char *servername, char *portname, char *uri);
 
 
 int main(int argc, char **argv)
 {
-    int listenfd, connfd;
+    int listenfd, clientfd, serverfd;
     socklen_t clientlen;
     char clientname[MAXLINE], clientport[MAXLINE], servername[MAXLINE], serverport[MAXLINE];
     struct sockaddr_storage client_addr;
@@ -46,27 +47,32 @@ int main(int argc, char **argv)
     /* Start sequentail proxy server main routine */
     while (1) {
         clientlen = sizeof(client_addr);
-        connfd = Accept(listenfd, (SA *)&client_addr, &clientlen);
+        clientfd = Accept(listenfd, (SA *)&client_addr, &clientlen);
         Getnameinfo((SA *) &client_addr, clientlen, clientname, MAXLINE, 
                     clientport, MAXLINE, 0);
         printf("Conected from (%s %s)\n", clientname, clientport);
 
         /* Read and process request from the client*/
-        if (process_request(connfd, request_for, servername, serverport) == -1) {
+        if (process_request(clientfd, request_for, servername, serverport) == -1) {
             /* Ignore malformed request */
-            Close(connfd);
+            Close(clientfd);
             continue;
         }
 
+        debug_print(servername);
+        debug_print(serverport);
+
         /* If the request is valid, forward it to the server */
-        connfd = Open_clientfd(servername, serverport);
+        serverfd = Open_clientfd(servername, serverport);
+        Rio_writen(serverfd, request_for, strlen(request_for));
         printf("Redirect request to %s:%s", servername, serverport);
-        if (process_response(connfd, response_for) == -1){
+        if (process_response(serverfd, response_for) == -1){
             /* Ignore malformed response */
-            Close(connfd);
+            Close(serverfd);
             continue;
         }
-        Rio_writen(connfd, response_for, strlen(response_for));
+        Rio_writen(clientfd, response_for, strlen(response_for));
+        Close(clientfd);
     }
 }
 
@@ -84,11 +90,8 @@ int process_request(int connfd, char *request_for, char *servername, char *portn
     if (!Rio_readlineb(&rp, buf, MAXLINE)) {
         return -1;
     }
-    printf("%s \n", buf);
 
     sscanf(buf, "%s %s %s", method, url, version);
-    printf("%s %s %s\n", method, url, version);
-    printf("%d\n", !strcasecmp(method, "GET"));
     if (strcasecmp(method, "GET")) {
         clienterror(connfd, method, "501", "Not implemented", 
                     "This method is not implemented");
@@ -102,10 +105,26 @@ int process_request(int connfd, char *request_for, char *servername, char *portn
         return -1;
     }
 
-    /* Ignore "://" in the request body, and parse out host and port */
+    /* Parse url into elements */
+    parse_url(url, servername, portname, uri);
+     
+    debug_print(servername);
+    debug_print(portname);
+    debug_print(uri);
+    
+    /* Re-construct the client request and add extra proxy headers */
+    contruct_request(&rp, request_for, method, uri, servername);
+
+    debug_print(request_for);
+    return 0;
+}
+
+/*
+ * parse_url - Parse url into servername, portname and uri
+ */
+void parse_url(char *url, char *servername, char *portname, char *uri) {
     char *dest, *ptr;
     ptr = url + 7;
-    debug_print(ptr);
     int port_suplied = 0;
     dest = servername;    /* We are reading server name at the begining */
     int j = 0;
@@ -127,18 +146,8 @@ int process_request(int connfd, char *request_for, char *servername, char *portn
         j++;
     }
     if (!port_suplied) strcpy(portname, "8080");
-     
-    debug_print(servername);
-    debug_print(portname);
-    debug_print(uri);
-    
-    /* Re-construct the client request and add extra proxy headers */
-    contruct_request(&rp, request_for, method, uri, servername);
-
-    debug_print(request_for);
-    return 0;
+    return;
 }
-
 
 /* 
  * construct_request - Decorate clinet request headers and body with 
@@ -155,11 +164,27 @@ void contruct_request(rio_t *rp, char *request_for, char *method, char *uri, cha
     /* Append addional headers from client */
     Rio_readlineb(rp, buf, MAXLINE);
     while (strcmp(buf, "\r\n")) {
-        Rio_readlineb(rp, buf, MAXLINE);
         if (!strncmp("Host", buf, strlen("Host"))) {
             add_host = 0;  /* The Host header is all ready there, no need to add. */
         }
+
+        /* Ignore proxy dependent headers. */
+        if (!strncmp(buf, "User-Agent:", 11)){
+            Rio_readlineb(rp, buf, MAXLINE);
+            continue;
+        }
+        if (!strncmp(buf, "Connection:", 11)) {
+            Rio_readlineb(rp, buf, MAXLINE);
+            continue;
+        }
+
+        if (!strncmp(buf, "Proxy-Connection:", 17)) {
+            Rio_readlineb(rp, buf, MAXLINE);
+            continue;
+        }
+
         sprintf(request_for + strlen(request_for), "%s", buf);
+        Rio_readlineb(rp, buf, MAXLINE);
     }
 
     /* Consturct proxy-dependent request headers */
