@@ -9,7 +9,7 @@
 #define DEBUG
 
 #ifdef DEBUG
-    #define debug_print(msg) printf("At %s:%s\n", __LINE__, __FILE__);print_msg(msg);
+    #define debug_print(msg) printf("At %d:%s\n", __LINE__, __FILE__);print_msg(msg);
 #else
     #define debug_print(msg) ((void)0)
 #endif
@@ -23,6 +23,7 @@ int process_request(int connfd, char *request_for, char *servername, char *portn
 void contruct_request(rio_t *rp, char *request_for, char *method, char *uri, char *hostname);
 int process_response(int connfd, char *response_for);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg);
+void print_msg(char *msg);
 
 
 int main(int argc, char **argv)
@@ -59,6 +60,7 @@ int main(int argc, char **argv)
 
         /* If the request is valid, forward it to the server */
         connfd = Open_clientfd(servername, serverport);
+        printf("Redirect request to %s:%s", servername, serverport);
         if (process_response(connfd, response_for) == -1){
             /* Ignore malformed response */
             Close(connfd);
@@ -93,7 +95,6 @@ int process_request(int connfd, char *request_for, char *servername, char *portn
         return -1;
     }
     
-    char *ptr;
     /* Parse out host and port */
     if (strncasecmp(url, "http", 4)) {
         clienterror(connfd, url, "400", "Bad request", 
@@ -102,23 +103,39 @@ int process_request(int connfd, char *request_for, char *servername, char *portn
     }
 
     /* Ignore "://" in the request body, and parse out host and port */
-    ptr = url + 6;
-    strcpy(servername, ptr);
-    if (!(ptr = index(servername, ':'))) {
-        strcpy(portname, "8080");
+    char *dest, *ptr;
+    ptr = url + 7;
+    debug_print(ptr);
+    int port_suplied = 0;
+    dest = servername;    /* We are reading server name at the begining */
+    int j = 0;
+    for (int i = 0; i <= strlen(ptr); i++) {
+        if (ptr[i] == ':') {
+            port_suplied = 1;
+            dest[j] = '\0';
+            j = 0;
+            dest = portname;   /* Begin to read portname */
+            continue;
+        }
+        else if (ptr[i] == '/')
+        {
+            dest[j] = '\0';
+            j = 0;
+            dest = uri;    /* Begin to read uri */
+        }
+        dest[j] = ptr[i];
+        j++;
     }
-    else {
-        strcpy(portname, ptr);
-        *ptr = '\0';    /* Terminate portname string */
-    }
-
-    /* Parse URI */
-    ptr = index(portname, '/');
-    strcpy(uri, ptr);
-    *ptr = '\0';
+    if (!port_suplied) strcpy(portname, "8080");
+     
+    debug_print(servername);
+    debug_print(portname);
+    debug_print(uri);
     
     /* Re-construct the client request and add extra proxy headers */
     contruct_request(&rp, request_for, method, uri, servername);
+
+    debug_print(request_for);
     return 0;
 }
 
@@ -148,7 +165,7 @@ void contruct_request(rio_t *rp, char *request_for, char *method, char *uri, cha
     /* Consturct proxy-dependent request headers */
     if (add_host)
         sprintf(request_for + strlen(request_for), "Host: %s\r\n", hostname);
-    sprintf(request_for + strlen(request_for), "User-Agent: %s\r\n", user_agent_hdr);
+    sprintf(request_for + strlen(request_for), "User-Agent: %s", user_agent_hdr);
     sprintf(request_for + strlen(request_for), "Connection: close\r\n");
     sprintf(request_for + strlen(request_for), "Proxy-Connection: close\r\n");
 
@@ -210,6 +227,6 @@ void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longms
  * Helper-functions for debug
  *****************************/
 void print_msg(char *msg) {
-    printf("%s", msg);
+    printf("%s\n", msg);
     return;
 }
