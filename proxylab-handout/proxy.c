@@ -14,6 +14,8 @@
     #define debug_print(msg) ((void)0)
 #endif
 
+#define MIN(x, y) ((x) < (y)? (x) : (y))
+
 
 /* You won't lose style points for including this long line in your code */
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:10.0.3) Gecko/20120305 Firefox/10.0.3\r\n";
@@ -21,7 +23,7 @@ static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (X11; Linux x86_64;
 /* Helper functions */
 int process_request(int connfd, char *request_for, char *servername, char *portname);
 void contruct_request(rio_t *rp, char *request_for, char *method, char *uri, char *hostname);
-int process_response(int connfd, char *response_for);
+int process_response(int connfd, char *response_for, int clientfd);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg);
 void print_msg(char *msg);
 void parse_url(char *url, char *servername, char *portname, char *uri);
@@ -66,12 +68,11 @@ int main(int argc, char **argv)
         serverfd = Open_clientfd(servername, serverport);
         Rio_writen(serverfd, request_for, strlen(request_for));
         printf("Redirect request to %s:%s", servername, serverport);
-        if (process_response(serverfd, response_for) == -1){
+        if ((process_response(serverfd, response_for, clientfd)) == -1){
             /* Ignore malformed response */
             Close(serverfd);
             continue;
         }
-        Rio_writen(clientfd, response_for, strlen(response_for));
         Close(clientfd);
     }
 }
@@ -203,18 +204,37 @@ void contruct_request(rio_t *rp, char *request_for, char *method, char *uri, cha
  * construct_response - Process server response comming from connfd
  *     it simplely does nothing but buffer the respose.
  */
-int process_response(int connfd, char *response_for) {
+int process_response(int connfd, char *response_for, int clientfd) {
     rio_t rp;
     Rio_readinitb(&rp, connfd);
     char buf[MAXLINE];
+    size_t content_length, hdr_length;
 
     Rio_readlineb(&rp, buf, MAXLINE);
+
+    /* Read response headers */
     sprintf(response_for, "%s", buf);
-    while (Rio_readlineb(&rp, buf, MAXLINE) > 0)
+    while (strcmp(buf, "\r\n"))
     {
         sprintf(response_for + strlen(response_for),  "%s", buf);
+        if (!strncmp(buf, "Content-length:", 15)) {
+            strcpy(buf, index(buf, ' ') + 1);
+            content_length = atoi(buf);
+        }
+        Rio_readlineb(&rp, buf, MAXLINE);
     }
+    sprintf(response_for + strlen(response_for), "%s", "\r\n");
+    hdr_length = strlen(response_for);
+    printf("Redirecting content with length %ld\n", content_length);
+    Rio_writen(clientfd, response_for, hdr_length);
 
+    /* Write contents */
+    int nread;
+    while (content_length > 0) {
+        nread = Rio_readnb(&rp, buf, MIN(content_length, MAXLINE));
+        Rio_writen(clientfd, buf, nread);
+        content_length -= nread;
+    }
     return 0;
 }
 
