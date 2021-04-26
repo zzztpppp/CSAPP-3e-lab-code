@@ -145,7 +145,7 @@ void parse_url(char *url, char *servername, char *portname, char *uri) {
         dest[j] = ptr[i];
         j++;
     }
-    if (!port_suplied) strcpy(portname, "8080");
+    if (!port_suplied) strcpy(portname, "80");
     return;
 }
 
