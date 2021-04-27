@@ -1,12 +1,13 @@
 #include <stdio.h>
 #include "csapp.h"
+#include "sbuf.h"
 
 /* Recommended max cache and object sizes */
 #define MAX_CACHE_SIZE 1049000
 #define MAX_OBJECT_SIZE 102400
 
 /* Debug control */
-#define DEBUG
+// #define DEBUG
 
 #ifdef DEBUG
     #define debug_print(msg) printf("At %d:%s\n", __LINE__, __FILE__);print_msg(msg);
@@ -27,32 +28,60 @@ int process_response(int connfd, char *response_for, int clientfd);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg);
 void print_msg(char *msg);
 void parse_url(char *url, char *servername, char *portname, char *uri);
+void *thread_doit(void *vargp);
 
+static sbuf_t sbuf;
 
 int main(int argc, char **argv)
 {
-    int listenfd, clientfd, serverfd;
-    socklen_t clientlen;
-    char clientname[MAXLINE], clientport[MAXLINE], servername[MAXLINE], serverport[MAXLINE];
+    int listenfd, clientfd;
     struct sockaddr_storage client_addr;
-    char response_for[MAXLINE] = {0};
-    char request_for[MAXLINE] = {0};
+    int n_threads = 4;
+    pthread_t tid;
+    char clientname[MAXLINE], clientport[MAXLINE];
+    socklen_t clientlen;
+
 
     /* Check command line arguements */
     if (argc != 2) {
         fprintf(stderr, "usage: %s <port>\n", argv[0]);
         exit(1);
     }
+
+    sbuf_init(&sbuf, MAXLINE);
+    for (int i = 0; i < n_threads; i++) {
+        Pthread_create(&tid, NULL, thread_doit, NULL);
+    }
     
     listenfd = Open_listenfd(argv[1]);
-
-    /* Start sequentail proxy server main routine */
     while (1) {
         clientlen = sizeof(client_addr);
         clientfd = Accept(listenfd, (SA *)&client_addr, &clientlen);
         Getnameinfo((SA *) &client_addr, clientlen, clientname, MAXLINE, 
                     clientport, MAXLINE, 0);
         printf("Conected from (%s %s)\n", clientname, clientport);
+        sbuf_insert(&sbuf, clientfd);
+    }
+}
+
+
+/*
+ * thread_doit - Thread function that handles request and redirect response 
+ *     independently
+ */
+void *thread_doit(void *vargp) {
+
+    Pthread_detach(Pthread_self());
+
+    int serverfd;
+    char  servername[MAXLINE], serverport[MAXLINE];
+    char response_for[MAXLINE] = {0};
+    char request_for[MAXLINE] = {0};
+
+
+    while (1) {
+
+        int clientfd = sbuf_remove(&sbuf);
 
         /* Read and process request from the client*/
         if (process_request(clientfd, request_for, servername, serverport) == -1) {
@@ -63,10 +92,10 @@ int main(int argc, char **argv)
 
         debug_print(servername);
         debug_print(serverport);
-
         /* If the request is valid, forward it to the server */
         serverfd = Open_clientfd(servername, serverport);
         Rio_writen(serverfd, request_for, strlen(request_for));
+
         printf("Redirect request to %s:%s", servername, serverport);
         if ((process_response(serverfd, response_for, clientfd)) == -1){
             /* Ignore malformed response */
