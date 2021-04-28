@@ -29,6 +29,7 @@ void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longms
 void print_msg(char *msg);
 void parse_url(char *url, char *servername, char *portname, char *uri);
 void *thread_doit(void *vargp);
+void My_writen(int fd, void *usrbuf, size_t n);
 
 static sbuf_t sbuf;
 
@@ -47,6 +48,8 @@ int main(int argc, char **argv)
         fprintf(stderr, "usage: %s <port>\n", argv[0]);
         exit(1);
     }
+
+    Signal(SIGPIPE, SIG_IGN);
 
     sbuf_init(&sbuf, MAXLINE);
     for (int i = 0; i < n_threads; i++) {
@@ -255,13 +258,13 @@ int process_response(int connfd, char *response_for, int clientfd) {
     sprintf(response_for + strlen(response_for), "%s", "\r\n");
     hdr_length = strlen(response_for);
     printf("Redirecting content with length %ld\n", content_length);
-    Rio_writen(clientfd, response_for, hdr_length);
+    My_writen(clientfd, response_for, hdr_length);
 
     /* Write contents */
     int nread;
     while (content_length > 0) {
         nread = Rio_readnb(&rp, buf, MIN(content_length, MAXLINE));
-        Rio_writen(clientfd, buf, nread);
+        My_writen(clientfd, buf, nread);
         content_length -= nread;
     }
     return 0;
@@ -279,22 +282,36 @@ void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longms
 
     /* Print the HTTP response headers */
     sprintf(buf, "HTTP/1.0 %s %s\r\n", errnum, shortmsg);
-    Rio_writen(fd, buf, strlen(buf));
+    My_writen(fd, buf, strlen(buf));
     sprintf(buf, "Content-type: text/html\r\n\r\n");
-    Rio_writen(fd, buf, strlen(buf));
+    My_writen(fd, buf, strlen(buf));
 
     /* Print the HTTP response body */
     sprintf(buf, "<html><title>Tiny Error</title>");
-    Rio_writen(fd, buf, strlen(buf));
+    My_writen(fd, buf, strlen(buf));
     sprintf(buf, "<body bgcolor=""ffffff"">\r\n");
-    Rio_writen(fd, buf, strlen(buf));
+    My_writen(fd, buf, strlen(buf));
     sprintf(buf, "%s: %s\r\n", errnum, shortmsg);
-    Rio_writen(fd, buf, strlen(buf));
+    My_writen(fd, buf, strlen(buf));
     sprintf(buf, "<p>%s: %s\r\n", longmsg, cause);
-    Rio_writen(fd, buf, strlen(buf));
+    My_writen(fd, buf, strlen(buf));
     sprintf(buf, "<hr><em>The Tiny Web server</em>\r\n");
-    Rio_writen(fd, buf, strlen(buf));
+    My_writen(fd, buf, strlen(buf));
 }
+
+
+/****************************
+ * Wrapper for rio_write to
+ * handle EPIPE error
+ ***************************/
+void My_writen(int fd, void *usrbuf, size_t n) 
+{
+    if (rio_writen(fd, usrbuf, n) != n) {
+        if (errno == EPIPE) return;
+        else                unix_error("My_writen error!");
+    }
+}
+
 
 
 /***************************** 
