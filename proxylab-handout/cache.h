@@ -13,5 +13,7 @@ typedef struct
     kv_t *cache;
     int *time;
     int size;
+    sem_t mutex, w;
+    int readcnt;
 } cache_t;
 
