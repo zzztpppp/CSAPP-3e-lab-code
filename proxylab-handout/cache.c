@@ -71,6 +71,9 @@ int find(cache_t *cache, char *key, kv_t *kv) {
     int i, found = 0;
     kv_t *obj;
     for (i = 0; i < cache->size; i++) {
+        // Ignore empty slots.
+        if (cache->time[i] == 0) continue;
+
         obj = cache->cache[i];
         if (!strcmp(key, obj->key)) {
             memcpy(kv, obj, sizeof(kv_t));
