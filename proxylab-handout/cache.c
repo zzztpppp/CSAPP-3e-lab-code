@@ -56,7 +56,7 @@ int insert(cache_t *cache, char *key, char *val, size_t size) {
  * find - Find the value of given key
  *     in the given cache.
  */
-kv_t *find(cache_t *cache, char *key) {
+int find(cache_t *cache, char *key, kv_t *kv) {
     P(&cache->readcnt);
     cache->readcnt++;
     if (cache->readcnt == 1) 
@@ -64,13 +64,21 @@ kv_t *find(cache_t *cache, char *key) {
     V(&cache->mutex);
 
     /* Linearly search the entire cache */
-    int i;
+    int i, found = 0;
     kv_t *obj;
     for (i = 0; i < cache->size; i++) {
         obj = cache->cache[i];
         if (!strcmp(key, obj->key)) {
-            return obj;
+            memcpy(obj, kv, sizeof(kv_t));
+            found = 1;
         }
     }
-    return NULL;
+
+    P(&cache->mutex);
+    cache->readcnt--;
+    if (cache->readcnt == 0)
+        V(&cache->w);
+    V(&cache->mutex);
+
+    return found;
 }
