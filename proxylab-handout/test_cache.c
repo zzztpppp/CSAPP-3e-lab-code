@@ -31,6 +31,16 @@ int main(int argc, char **argv) {
     int j, i = 0; 
     kv_t temp;
 
+    // Test searching the empty cache.
+    for (i = 0; i < cache.size; i++) {
+        j = rand() % cache.size;
+        key[0] = keys[j];
+        printf("Finding %s\n", key);
+        printf("Result is %d\n", find(&cache, key, &temp));
+        print_cache(&cache);
+    }
+
+
     // Fill up the cache with elements.
     for (i = 0; i < cache.size; i++) {
         key[0] = keys[i];
@@ -42,6 +52,15 @@ int main(int argc, char **argv) {
     for (i = 0; i < cache.size; i++) {
         j = rand() % cache.size;
         key[0] = keys[j];
+        printf("Finding %s\n", key);
+        printf("Result is %d\n", find(&cache, key, &temp));
+        print_cache(&cache);
+    }
+
+    // Perform searching for non-existing keys to test robustness.
+    char absent_keys[] = "xyz";
+    for (i = 0; i < strlen(absent_keys); i++) {
+        key[0] = absent_keys[i];
         printf("Finding %s\n", key);
         printf("Result is %d\n", find(&cache, key, &temp));
         print_cache(&cache);
