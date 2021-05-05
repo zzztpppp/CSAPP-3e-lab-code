@@ -1,16 +1,15 @@
 #include <stdio.h>
-#include "csapp.h"
 #include "cache.h"
 
 
 int cache_init(cache_t *cache, size_t n) {
-    int i;
     cache->cache = Calloc(sizeof(kv_t *), n);
     cache->size = n;
     cache->time = Calloc(sizeof(int), n);
     Sem_init(&cache->mutex, 0, 1);
     Sem_init(&cache->w, 0, 1);
     cache->readcnt = 0;
+    cache->clock = 1;
     return 0; 
 }
 
@@ -36,17 +35,22 @@ int insert(cache_t *cache, char *key, char *val, size_t size) {
         if (cache->time[i] < least_time) {
             to_insert = i;
             least_time = cache->time[i];
-
-            /* Evict the memory use of old object*/
-            Free(cache->cache[to_insert]);
         }
     }
+    
+    /* Evict the memory use of old object*/
+    Free(cache->cache[to_insert]);
 
-    cache->time[to_insert]++;
+    // Update time used for the slot and clock.
+    cache->time[to_insert] = cache->clock;
+    cache->clock++;
+
+    // Insert the key-value pair to the slot.
     obj = Malloc(sizeof(kv_t));
     strncpy(obj->key, key, 50);
     memcpy(obj->val, val, size);
     cache->cache[to_insert] = obj;
+
     V(&cache->w);
     return 0;
 }
@@ -57,7 +61,7 @@ int insert(cache_t *cache, char *key, char *val, size_t size) {
  *     in the given cache.
  */
 int find(cache_t *cache, char *key, kv_t *kv) {
-    P(&cache->readcnt);
+    P(&cache->mutex);
     cache->readcnt++;
     if (cache->readcnt == 1) 
         P(&cache->w);
@@ -69,7 +73,9 @@ int find(cache_t *cache, char *key, kv_t *kv) {
     for (i = 0; i < cache->size; i++) {
         obj = cache->cache[i];
         if (!strcmp(key, obj->key)) {
-            memcpy(obj, kv, sizeof(kv_t));
+            memcpy(kv, obj, sizeof(kv_t));
+            cache->time[i] = cache->clock;
+            cache->clock++;
             found = 1;
         }
     }
