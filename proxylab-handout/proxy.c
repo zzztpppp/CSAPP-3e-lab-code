@@ -1,13 +1,15 @@
 #include <stdio.h>
 #include "csapp.h"
+#include "cache.h"
 #include "sbuf.h"
 
 /* Recommended max cache and object sizes */
 #define MAX_CACHE_SIZE 1049000
 #define MAX_OBJECT_SIZE 102400
+#define CACHE_PARTITIONS 10
 
 /* Debug control */
-// #define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
     #define debug_print(msg) printf("At %d:%s\n", __LINE__, __FILE__);print_msg(msg);
@@ -22,9 +24,9 @@
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:10.0.3) Gecko/20120305 Firefox/10.0.3\r\n";
 
 /* Helper functions */
-int process_request(int connfd, char *request_for, char *servername, char *portname);
+int process_request(int connfd, char *request_for, char *servername, char *portname, char *url);
 void contruct_request(rio_t *rp, char *request_for, char *method, char *uri, char *hostname);
-int process_response(int connfd, char *response_for, int clientfd);
+int process_response(int connfd, char *response_for, int clientfd, char *cache_buf, int *discard_cache);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg);
 void print_msg(char *msg);
 void parse_url(char *url, char *servername, char *portname, char *uri);
@@ -32,6 +34,7 @@ void *thread_doit(void *vargp);
 void My_writen(int fd, void *usrbuf, size_t n);
 
 static sbuf_t sbuf;
+static cache_t cache;
 
 int main(int argc, char **argv)
 {
@@ -49,7 +52,11 @@ int main(int argc, char **argv)
         exit(1);
     }
 
+    // Ignore sigpipe caused by early close of clients.
     Signal(SIGPIPE, SIG_IGN);
+
+    // Initialize cache.
+    cache_init(&cache, CACHE_PARTITIONS);
 
     sbuf_init(&sbuf, MAXLINE);
     for (int i = 0; i < n_threads; i++) {
@@ -77,20 +84,28 @@ void *thread_doit(void *vargp) {
     Pthread_detach(Pthread_self());
 
     int serverfd;
-    char  servername[MAXLINE], serverport[MAXLINE];
+    char servername[MAXLINE], serverport[MAXLINE];
+    char url[MAXLINE];    // Servers as a key for a cached object.
     char response_for[MAXLINE] = {0};
     char request_for[MAXLINE] = {0};
-
+    char cached_obj[MAX_OBJECT_SIZE];
+    int content_size = 0;    // Discard cache if the size of reponse exceeds MAX_OBJECT_SIZE.
+    int serve_cached = 0;
 
     while (1) {
 
         int clientfd = sbuf_remove(&sbuf);
 
         /* Read and process request from the client*/
-        if (process_request(clientfd, request_for, servername, serverport) == -1) {
+        serve_cached = process_request(clientfd, request_for, servername, serverport, url);
+        if (serve_cached == -1) {
             /* Ignore malformed request */
             Close(clientfd);
             continue;
+        }
+        else if(serve_cached == 1) {
+            Close(clientfd);
+            continue;    // A cached copy of response has been served.
         }
 
         debug_print(servername);
@@ -99,12 +114,17 @@ void *thread_doit(void *vargp) {
         serverfd = Open_clientfd(servername, serverport);
         Rio_writen(serverfd, request_for, strlen(request_for));
 
-        printf("Redirect request to %s:%s", servername, serverport);
-        if ((process_response(serverfd, response_for, clientfd)) == -1){
+        printf("Redirect request to %s:%s\n", servername, serverport);
+        if ((process_response(serverfd, response_for, clientfd, cached_obj, &content_size)) == -1){
             /* Ignore malformed response */
             Close(serverfd);
             continue;
         }
+
+        if (content_size) {
+            insert(&cache, url, cached_obj, content_size);
+        }
+
         Close(clientfd);
     }
 }
@@ -114,8 +134,8 @@ void *thread_doit(void *vargp) {
  * process_request - Process the comming request 
  * from the socket connection connfd.
  */
-int process_request(int connfd, char *request_for, char *servername, char *portname){
-    char buf[MAXLINE], method[MAXLINE], url[MAXLINE], version[MAXLINE], uri[MAXLINE];
+int process_request(int connfd, char *request_for, char *servername, char *portname, char *url){
+    char buf[MAXLINE], method[MAXLINE], version[MAXLINE], uri[MAXLINE];
     rio_t rp; 
 
     /* Read request lines and headers */
@@ -130,6 +150,21 @@ int process_request(int connfd, char *request_for, char *servername, char *portn
                     "This method is not implemented");
         return -1;
     }
+
+    debug_print(method);
+    debug_print(url);
+    debug_print(version);
+
+    // Search for cached object given by the url
+    kv_t kv;
+    if (find(&cache, url, &kv) == 1) {    // If the object asked is in cache, no need to request the server.
+        printf("Found! %s\n", kv.key);
+        Rio_writen(connfd, kv.val, kv.size);
+        printf("Send cached object with size! %ld\n", kv.size);
+        return 1;
+    }
+    printf("Asset not cached, redirect to server!\n");
+
     
     /* Parse out host and port */
     if (strncasecmp(url, "http", 4)) {
@@ -236,11 +271,11 @@ void contruct_request(rio_t *rp, char *request_for, char *method, char *uri, cha
  * construct_response - Process server response comming from connfd
  *     it simplely does nothing but buffer the respose.
  */
-int process_response(int connfd, char *response_for, int clientfd) {
+int process_response(int connfd, char *response_for, int clientfd, char *cache_buf, int *discard_cache) {
     rio_t rp;
     Rio_readinitb(&rp, connfd);
     char buf[MAXLINE];
-    size_t content_length, hdr_length;
+    size_t content_length, hdr_length, obj_length;
 
     Rio_readlineb(&rp, buf, MAXLINE);
 
@@ -260,13 +295,27 @@ int process_response(int connfd, char *response_for, int clientfd) {
     printf("Redirecting content with length %ld\n", content_length);
     My_writen(clientfd, response_for, hdr_length);
 
+    // Try to cache headers.
+    obj_length = hdr_length;
+    memcpy(cache_buf, buf, hdr_length);
+
     /* Write contents */
     int nread;
     while (content_length > 0) {
         nread = Rio_readnb(&rp, buf, MIN(content_length, MAXLINE));
         My_writen(clientfd, buf, nread);
         content_length -= nread;
+        // Try to cache object.
+        if (nread + obj_length <= MAX_OBJECT_SIZE){
+            memcpy(cache_buf + obj_length, buf, nread);
+            obj_length += nread;
+        }
+        else
+            obj_length += MAX_OBJECT_SIZE;
     }
+
+    if (obj_length <= MAX_OBJECT_SIZE) *discard_cache = obj_length;
+
     return 0;
 }
 
