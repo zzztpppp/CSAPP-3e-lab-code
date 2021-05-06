@@ -1,2 +1,5 @@
 # CSAPP-3e-lab-code
-This a code repository for CSAPP(Computer Systems: A Programmer's Perspective) 3rd edition lab assignments.
+This is a code repository for CSAPP(Computer Systems: A Programmer's Perspective) 3rd edition lab assignments.
+
+# Update 2021-05-06
+Finish all 7 labs. Although not getting full score (91/100) for malloc lab, coming through such a great course is satisfying well enough!
