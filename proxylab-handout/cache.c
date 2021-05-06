@@ -49,6 +49,7 @@ int insert(cache_t *cache, char *key, char *val, size_t size) {
     obj = Malloc(sizeof(kv_t));
     strncpy(obj->key, key, 50);
     memcpy(obj->val, val, size);
+    obj->size = size;
     cache->cache[to_insert] = obj;
 
     V(&cache->w);
