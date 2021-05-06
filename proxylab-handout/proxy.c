@@ -305,13 +305,12 @@ int process_response(int connfd, char *response_for, int clientfd, char *cache_b
         nread = Rio_readnb(&rp, buf, MIN(content_length, MAXLINE));
         My_writen(clientfd, buf, nread);
         content_length -= nread;
+
         // Try to cache object.
         if (nread + obj_length <= MAX_OBJECT_SIZE){
             memcpy(cache_buf + obj_length, buf, nread);
-            obj_length += nread;
         }
-        else
-            obj_length += MAX_OBJECT_SIZE;
+        obj_length += nread;
     }
 
     if (obj_length <= MAX_OBJECT_SIZE) *discard_cache = obj_length;
