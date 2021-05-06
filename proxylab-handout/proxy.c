@@ -297,7 +297,7 @@ int process_response(int connfd, char *response_for, int clientfd, char *cache_b
 
     // Try to cache headers.
     obj_length = hdr_length;
-    memcpy(cache_buf, buf, hdr_length);
+    memcpy(cache_buf, response_for, hdr_length);
 
     /* Write contents */
     int nread;
